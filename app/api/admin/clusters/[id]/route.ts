@@ -4,7 +4,7 @@ import { appendEvent } from "@/lib/report-service";
 
 const clusterUpdateSchema = z.object({
   title: z.string().trim().min(3).max(160).optional(),
-  status: z.enum(["Under review", "Investigating", "In progress", "Resolved"]).optional(),
+  status: z.enum(["Under review", "Investigating", "In progress", "Awaiting admin review", "Resolved"]).optional(),
   assignedTo: z.string().trim().max(120).nullable().optional(),
   message: z.string().trim().max(1000).optional(),
   action: z.enum(["separate"]).optional(),

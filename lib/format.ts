@@ -14,6 +14,7 @@ export function timeAgo(value: string, language: "en" | "as" = "en") {
 }
 
 export function statusClass(status: string) {
+  if (status === "Awaiting admin review") return "status-awaiting-admin";
   if (status === "Investigating") return "status-investigating";
   if (status === "In progress") return "status-progress";
   if (status === "Resolved") return "status-resolved";

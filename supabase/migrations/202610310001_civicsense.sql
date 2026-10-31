@@ -5,7 +5,7 @@ do $$ begin
   create type public.user_role as enum ('student', 'staff', 'admin');
 exception when duplicate_object then null; end $$;
 do $$ begin
-  create type public.report_status as enum ('Under review', 'Investigating', 'In progress', 'Resolved');
+  create type public.report_status as enum ('Under review', 'Investigating', 'In progress', 'Awaiting admin review', 'Resolved');
 exception when duplicate_object then null; end $$;
 do $$ begin
   create type public.report_priority as enum ('Low', 'Medium', 'High', 'Urgent');
@@ -25,6 +25,7 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text not null,
   role public.user_role not null default 'student',
+  department text,
   preferred_language text not null default 'en' check (preferred_language in ('en', 'as')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -128,11 +129,9 @@ $$;
 
 create or replace function public.create_profile_for_auth_user()
 returns trigger language plpgsql security definer set search_path = public as $$
-declare requested_role text := coalesce(new.raw_user_meta_data->>'role', 'student');
 begin
-  if requested_role not in ('student', 'staff') then requested_role := 'student'; end if;
   insert into public.profiles(id, full_name, role, preferred_language)
-  values(new.id, coalesce(nullif(new.raw_user_meta_data->>'full_name',''), split_part(new.email,'@',1)), requested_role::public.user_role,
+  values(new.id, coalesce(nullif(new.raw_user_meta_data->>'full_name',''), split_part(new.email,'@',1)), 'student',
     case when new.raw_user_meta_data->>'preferred_language' = 'as' then 'as' else 'en' end)
   on conflict(id) do nothing;
   return new;

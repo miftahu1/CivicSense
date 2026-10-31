@@ -13,7 +13,7 @@ export const categories = [
 ] as const;
 
 export const priorities = ["Low", "Medium", "High", "Urgent"] as const;
-export const statuses = ["Under review", "Investigating", "In progress", "Resolved"] as const;
+export const statuses = ["Under review", "Investigating", "In progress", "Awaiting admin review", "Resolved"] as const;
 export type Category = (typeof categories)[number];
 export type Priority = (typeof priorities)[number];
 export type ReportStatus = (typeof statuses)[number];
@@ -86,5 +86,6 @@ export type AppUser = {
   name: string;
   email: string;
   role: UserRole;
+  department: string | null;
   preferredLanguage: "en" | "as";
 };

@@ -12,7 +12,7 @@ Requirements: Node.js 20.9 or newer and npm.
 
 1. Install packages: `npm install`
 2. Copy `.env.example` to `.env.local` and fill in the Supabase and Gemini values below.
-3. Create a Supabase project. In its SQL Editor, run the files in `supabase/migrations` in filename order. The first migration creates the schema; the follow-up migration adds investigation status, department assignment, and the 15 MB photo limit.
+3. Create a Supabase project. In its SQL Editor, run the files in `supabase/migrations` in filename order. The migrations create the schema, investigation and administrator-review states, staff department assignment, and the 15 MB photo limit.
 4. Start the app: `npm run dev`
 5. Open `http://localhost:3000`.
 
@@ -35,8 +35,9 @@ Never put `SUPABASE_SERVICE_ROLE_KEY` or `GEMINI_API_KEY` in a `NEXT_PUBLIC_` va
 
 ## Authentication and roles
 
-- Register students and staff from `/signup`; Supabase Auth stores credentials and a database trigger creates their profile.
-- Self-registration is limited to student and staff roles. The trigger ignores any requested administrator role.
+- Register students from `/signup`; Supabase Auth stores credentials and a database trigger creates their profile. New registrations always start as students.
+- An administrator grants staff access and assigns a department under **Team access**. Staff see and update only open reports assigned to that department. They can move work through investigation and in-progress states, then submit completion for an administrator to approve or return.
+- The database trigger ignores role claims supplied by a registering user. The server also checks every staff and administrator operation against the stored profile role.
 - To promote an existing account, run this statement as a trusted project owner in the Supabase SQL Editor, replacing the email:
 
   ```sql
@@ -46,7 +47,7 @@ Never put `SUPABASE_SERVICE_ROLE_KEY` or `GEMINI_API_KEY` in a `NEXT_PUBLIC_` va
   ```
 
 - In production, enable email confirmation and configure an SMTP sender in Supabase Auth. For a local hackathon walkthrough, the project can disable confirmation in its Supabase Auth settings.
-- Every route checks the Supabase user on the server. Administrator endpoints also read the profile role on the server. Students can read only their own reports. The service-role key is never sent to a browser.
+- Every route checks the Supabase user on the server. Administrator endpoints read the profile role on the server; staff routes require a staff profile and department assignment. Students can read only their own reports. The service-role key is never sent to a browser.
 
 ## Synthetic demo accounts and records
 
@@ -84,15 +85,16 @@ The Next.js Route Handlers cover:
 
 - `POST /api/reports` and `GET /api/reports`
 - `GET /api/reports/[id]` and `GET /api/reports/[id]/similar`
-- `GET /api/admin/queue` and `GET /api/admin/metrics`
+- `GET /api/admin/queue`, `GET /api/admin/metrics`, and `GET|PATCH /api/admin/team`
 - `PATCH /api/admin/reports/[id]`, `POST /api/admin/reports/[id]/assign`, and `POST /api/admin/reports/[id]/analyze`
+- `GET /api/staff/queue` and `PATCH /api/staff/reports/[id]`
 - `GET|POST /api/admin/clusters` and `PATCH /api/admin/clusters/[id]`
 
 The workspace polls the authenticated report endpoint every 30 seconds for status updates. Report events provide the in-app status history and notification content.
 
 ## Database, storage, and privacy
 
-The migrations create profiles, reports, attachments, issue clusters, report events, and 768-dimensional report embeddings. They add query indexes, timestamps, the private photo bucket, RLS policies, service-only vector RPCs, investigation status, department assignment, and the 15 MB attachment limit. Students can select their own reports and related status history. Administrators can select all authorised reports and clusters. Writes that affect reports and clusters are performed after server-side role checks.
+The migrations create profiles, reports, attachments, issue clusters, report events, and 768-dimensional report embeddings. They add query indexes, timestamps, the private photo bucket, RLS policies, service-only vector RPCs, investigation and administrator-review states, department assignment, and the 15 MB attachment limit. Students can select their own reports and related status history. Staff can work reports assigned to their department and cannot mark them resolved. Administrators can select all authorised reports and clusters and approve or return staff completion. Writes that affect reports and clusters are performed after server-side role checks.
 
 ## Deploy to Vercel
 

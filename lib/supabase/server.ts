@@ -33,7 +33,7 @@ export async function requireUser() {
   const { data: { user }, error } = await auth.auth.getUser();
   if (error || !user) throw new Error("UNAUTHORIZED");
   const admin = createServiceClient();
-  const { data: profile, error: profileError } = await admin.from("profiles").select("id, full_name, role, preferred_language").eq("id", user.id).single();
+  const { data: profile, error: profileError } = await admin.from("profiles").select("id, full_name, role, preferred_language, department").eq("id", user.id).single();
   if (profileError || !profile) throw new Error("PROFILE_MISSING");
   return { auth, admin, user, profile };
 }
@@ -44,8 +44,16 @@ export async function requireAdmin() {
   return context;
 }
 
+export async function requireStaff() {
+  const context = await requireUser();
+  if (context.profile.role !== "staff") throw new Error("FORBIDDEN");
+  if (!context.profile.department) throw new Error("STAFF_DEPARTMENT_REQUIRED");
+  return context;
+}
+
 export function authErrorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "Unexpected error";
-  const status = message === "UNAUTHORIZED" ? 401 : message === "FORBIDDEN" ? 403 : message === "PROFILE_MISSING" ? 403 : 500;
-  return Response.json({ error: message === "UNAUTHORIZED" ? "Please sign in to continue." : message === "FORBIDDEN" ? "Administrator access is required." : message }, { status });
+  const status = message === "UNAUTHORIZED" ? 401 : message === "FORBIDDEN" || message === "STAFF_DEPARTMENT_REQUIRED" || message === "PROFILE_MISSING" ? 403 : 500;
+  const safeMessage = message === "UNAUTHORIZED" ? "Please sign in to continue." : message === "FORBIDDEN" ? "You do not have access to this operation." : message === "STAFF_DEPARTMENT_REQUIRED" ? "Your staff account needs a campus department assignment." : message;
+  return Response.json({ error: safeMessage }, { status });
 }

@@ -12,6 +12,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (loadError) throw loadError;
     if (!before) return Response.json({ error: "Report not found." }, { status: 404 });
     const input = parsed.data;
+    if (before.status === "Awaiting admin review" && input.status === "In progress" && !input.message?.trim()) {
+      return Response.json({ error: "Add a review note before returning this report to staff." }, { status: 400 });
+    }
     const patch: Record<string, unknown> = {};
     if (input.status) patch.status = input.status;
     if (input.category) patch.category = input.category;

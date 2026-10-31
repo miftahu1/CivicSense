@@ -329,7 +329,7 @@ button { color: inherit; }
 .pagination { display: flex; gap: 4px; }
 .pagination button { width: 25px; height: 24px; background: transparent; border: 1px solid #deddd5; cursor: pointer; font-size: 9px; }
 .pagination button.active { color: #fff; background: var(--forest); border-color: var(--forest); }
-.kanban { display: grid; grid-template-columns: repeat(4, minmax(235px, 1fr)); gap: 13px; overflow: auto; padding-bottom: 8px; }
+.kanban { display: grid; grid-template-columns: repeat(5, minmax(235px, 1fr)); gap: 13px; overflow: auto; padding-bottom: 8px; }
 .kanban-column { min-height: 300px; padding: 11px; background: #eae9e0; }
 .kanban-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; color: #5c685f; font-size: 10px; font-weight: 600; }
 .kanban-head span { display: inline-flex; align-items: center; gap: 7px; }
@@ -462,8 +462,8 @@ button { color: inherit; }
   .crumbs { font-size: 10px; }
   .role-switch { height: 29px; max-width: 88px; font-size: 9px; }
   .topbar-actions { gap: 7px; }
-  .topbar .language-toggle { max-width: 62px; overflow: hidden; gap: 3px; padding: 5px 3px; font-size: 9px; }
-  .topbar .language-toggle > span { display: none; }
+  .topbar .language-toggle { max-width: none; overflow: visible; gap: 5px; padding: 7px 8px; font-size: 12px; }
+  .topbar .language-toggle > span:last-child { display: none; }
   .role-switch { max-width: 72px; }
   .content { padding: 22px 13px 32px; }
   .page-heading h1 { font-size: 31px; }
@@ -534,3 +534,228 @@ button { color: inherit; }
 .not-found-content h1 { max-width: 610px; margin: 20px 0 12px; font: 400 clamp(30px,4.6vw,48px)/1.1 var(--serif); letter-spacing: -1.4px; }
 .not-found-content p { max-width: 470px; margin: 0 0 26px; color: #737b72; font-size: 13px; line-height: 1.8; }
 @media (max-width: 700px) { .cluster-review-grid { grid-template-columns: 1fr; } }
+
+/* Role based workspaces */
+.staff-identity { display:flex; align-items:center; gap:14px; margin:0 0 18px; padding:17px 19px; border:1px solid #d9ded5; background:#edf0e9; }
+.staff-identity-mark { display:grid; place-items:center; width:42px; height:42px; flex:0 0 auto; color:var(--forest); background:#dce4dc; }
+.staff-identity > div:nth-child(2) { display:grid; gap:3px; }
+.staff-identity > div:nth-child(2) span { color:#758077; font-size:12px; }
+.staff-identity > div:nth-child(2) strong { color:var(--ink); font-size:16px; font-weight:650; }
+.staff-identity-note { display:flex; align-items:center; gap:7px; margin-left:auto; color:#627267; font-size:13px; }
+.staff-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-bottom:24px; }
+.staff-metrics article { min-height:126px; display:grid; align-content:start; gap:5px; padding:17px 19px; border:1px solid var(--line); background:#faf9f5; }
+.staff-metrics article > span { color:#68746b; font-size:13px; }
+.staff-metrics article strong { margin-top:3px; font:400 34px/1 var(--serif); }
+.staff-metrics article small { color:#858d84; font-size:12px; }
+.staff-metrics article.needs-review { border-color:#d7c89f; background:#f3eedf; }
+.staff-queue { padding:0; }
+.staff-queue-heading,.team-toolbar { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:20px 22px; border-bottom:1px solid var(--line); }
+.staff-queue-heading h2,.team-toolbar h2 { margin:6px 0 0; font:400 25px/1.2 var(--serif); }
+.staff-queue-heading > span { color:#778078; font-size:13px; }
+.staff-queue-tools { display:flex; gap:10px; padding:15px 22px; border-bottom:1px solid var(--line); }
+.staff-queue-tools .search-field { flex:1; }
+.staff-report-list { display:grid; }
+.staff-report-card { display:flex; align-items:center; justify-content:space-between; gap:20px; width:100%; padding:18px 22px; text-align:left; border:0; border-bottom:1px solid #e8e6df; background:transparent; cursor:pointer; transition:background .15s; }
+.staff-report-card:last-child { border-bottom:0; }
+.staff-report-card:hover { background:#f4f3ec; }
+.staff-report-main { min-width:0; }
+.staff-report-ticket { display:flex; align-items:center; gap:10px; color:#79847b; font:600 12px var(--font-geist-sans),sans-serif; }
+.staff-report-ticket span { color:#9a7950; }
+.staff-report-main h3 { margin:7px 0 4px; color:var(--ink); font:400 19px/1.3 var(--serif); }
+.staff-report-main p { margin:0; max-width:720px; color:#69746b; font-size:14px; line-height:1.55; }
+.staff-report-main > small { display:block; margin-top:8px; color:#899087; font-size:12px; }
+.staff-report-state { display:grid; justify-items:end; gap:7px; flex:0 0 auto; }
+.staff-open-label { display:inline-flex; align-items:center; gap:4px; margin-top:3px; color:var(--terracotta); font-size:13px; font-weight:650; }
+.staff-empty { min-height:235px; }
+.staff-demo-note { margin-top:14px; }
+.team-count { display:flex; align-items:center; gap:9px; padding:11px 14px; color:#667268; border:1px solid var(--line); background:#faf9f5; }
+.team-count strong { color:var(--ink); font-size:21px; }
+.team-count span { font-size:13px; }
+.team-panel { padding:0; }
+.team-toolbar .search-field { width:min(360px,46%); }
+.team-list { display:grid; }
+.team-member { display:grid; grid-template-columns:minmax(190px,1fr) minmax(340px,1.2fr) auto; gap:20px; align-items:center; padding:16px 22px; border-bottom:1px solid #e8e6df; }
+.team-member:last-child { border-bottom:0; }
+.team-member-identity { display:flex; align-items:center; gap:11px; min-width:0; }
+.team-avatar { display:grid; place-items:center; width:38px; height:38px; flex:0 0 auto; border-radius:50%; color:#435348; background:#d9ded4; font-size:13px; }
+.team-member-identity > div { display:grid; gap:4px; min-width:0; }
+.team-member-identity strong { overflow:hidden; color:#36443b; font-size:14px; text-overflow:ellipsis; white-space:nowrap; }
+.team-member-identity > div > span { color:#879087; font-size:12px; }
+.team-member-access { display:flex; align-items:end; gap:12px; }
+.team-member-access label { display:grid; gap:5px; min-width:145px; color:#738077; font-size:12px; }
+.team-member-access select { min-height:39px; width:100%; border:1px solid #d8d8cf; background:#fffefb; padding:7px 9px; color:#34443a; font-size:14px; }
+.team-member-access .admin-account-note { margin-bottom:11px; color:#8c938b; font-size:12px; }
+.team-save { white-space:nowrap; min-height:39px; }
+.team-footnote { margin-top:13px; }
+.review-callout { margin:0 0 14px; padding:13px 15px; color:#6c5d36; border-left:3px solid var(--ochre); background:#f3eedf; font-size:14px; line-height:1.6; }
+.staff-review-wait { border-color:#d7c89f; background:#f5f1e5; }
+.staff-review-wait p { margin:0; color:#68746b; font-size:14px; line-height:1.65; }
+.staff-update-panel { border-color:#cbd5ca; }
+.staff-update-panel .admin-controls { margin-top:14px; }
+.staff-update-panel .admin-controls label,.staff-update-panel .admin-controls select,.staff-update-panel .admin-controls textarea { font-size:14px; }
+.staff-action-row,.admin-review-actions { display:flex; flex-wrap:wrap; gap:9px; align-items:center; }
+.metric-row-admin { grid-template-columns:repeat(5,minmax(0,1fr)); }
+.metric-action { display:block; color:inherit; transition:background .15s; }
+.metric-action:hover { background:#efeee7; }
+
+/* Report viewer opens as a native, keyboard accessible dialog. */
+.report-dialog { width:min(1240px,calc(100vw - 36px)); height:min(940px,calc(100dvh - 36px)); max-width:none; max-height:none; padding:0; overflow:hidden; border:1px solid #d4d4cb; border-radius:8px; color:var(--ink); background:var(--paper); box-shadow:0 26px 90px #0f1c1680; }
+.report-dialog::backdrop { background:#101a16b8; backdrop-filter:blur(3px); }
+.report-dialog-toolbar { position:sticky; top:0; z-index:2; display:flex; align-items:center; justify-content:space-between; min-height:58px; padding:0 22px; color:#e9eee8; background:var(--forest); }
+.report-dialog-toolbar > span { font-size:13px; font-weight:650; letter-spacing:.02em; }
+.report-dialog-toolbar button { display:inline-flex; align-items:center; gap:7px; min-height:40px; padding:0 9px; border:1px solid #ffffff33; border-radius:4px; color:#fff; background:transparent; cursor:pointer; font-size:14px; }
+.report-dialog-toolbar button:hover { background:#ffffff14; }
+.report-dialog-scroll { height:calc(100% - 58px); overflow:auto; padding:28px clamp(18px,3.1vw,42px) 38px; overscroll-behavior:contain; }
+.report-dialog-scroll .page-heading > div > .panel-link { display:none; }
+.report-dialog-scroll .page-heading { align-items:start; }
+.report-dialog-scroll .page-heading h1 { max-width:780px; font-size:clamp(30px,3.1vw,40px); line-height:1.15; letter-spacing:-.7px; }
+.report-dialog-scroll .detail-layout { grid-template-columns:minmax(0,1.45fr) minmax(280px,.72fr); gap:18px; }
+
+/* Larger type scale and calmer line lengths across the product. */
+body { font-size:16px; line-height:1.6; }
+.nav-links { font-size:14px; }
+.language-select { font-size:14px; }
+.button { font-size:15px; min-height:44px; }
+.button-small { min-height:40px; padding:8px 13px; font-size:14px; }
+.eyebrow { font-size:12px; letter-spacing:.9px; }
+.hero-copy { font-size:17px; line-height:1.75; }
+.hero-footnote,.landing-bottom { font-size:13px; line-height:1.6; }
+.visual-card-head { font-size:11px; }
+.visual-card p { font-size:13px; line-height:1.55; }
+.process-title p,.process-step p { font-size:14px; line-height:1.7; }
+.semantic-heading p { font-size:15px; }
+.semantic-tabs button { font-size:13px; padding:10px 13px; }
+.semantic-card-head,.semantic-result-head { font-size:11px; }
+.semantic-card-head b { font-size:12px; }
+.semantic-source blockquote.assamese { font-size:19px; }
+.semantic-source-foot,.semantic-footnote { font-size:12px; }
+.semantic-result-head b { font-size:11px; }
+.semantic-facts small,.semantic-summaries small { font-size:10px; }
+.semantic-facts strong { font-size:13px; }
+.semantic-summaries p,.semantic-cluster p { font-size:13px; line-height:1.6; }
+.semantic-summaries .assamese p { font-size:15px; }
+.semantic-cluster > div { font-size:10px; }
+.semantic-cluster strong { font-size:11px; }
+.capability-grid .section-kicker { font-size:10px; }
+.capability-grid p { font-size:14px; line-height:1.65; }
+.auth-side p { font-size:15px; }
+.auth-side-note { font-size:13px; }
+.field label { font-size:14px; }
+.field-hint { font-size:13px; line-height:1.65; }
+.error-text,.auth-switch { font-size:14px; }
+.admin-controls input,.admin-controls select,.admin-controls textarea { font-size:14px; min-height:42px; }
+.nav-label { font-size:10.5px; letter-spacing:.9px; }
+.side-link { min-height:44px; font-size:14px; }
+.help-link { font-size:13px; }
+.demo-mode { font-size:12px; }
+.demo-mode strong { font-size:10px; }
+.crumbs { font-size:13px; }
+.topbar-actions { gap:11px; }
+.topbar .language-toggle { min-height:38px; font-size:13px; }
+.user-name { font-size:13px; }
+.user-role { font-size:11px; }
+.role-switch { height:38px; font-size:13px; }
+.page-heading p { font-size:15px; line-height:1.65; }
+.section-kicker { font-size:11px; letter-spacing:.75px; }
+.demo-banner { font-size:13px; line-height:1.65; }
+.metric-label { font-size:13px; }
+.metric-note { font-size:12px; line-height:1.5; }
+.panel-link { font-size:13px; }
+.report-row { padding:19px 20px; }
+.report-row h3 { font-size:19px; }
+.report-row p { font-size:14px; line-height:1.6; }
+.report-meta { font-size:12px; line-height:1.5; }
+.status-pill,.priority-pill { min-height:27px; height:auto; padding:4px 9px; font-size:12px; }
+.quick-action strong { font-size:14px; }
+.quick-action span { font-size:12px; }
+.related-box-head,.related-box a { font-size:12px; }
+.cluster-item p,.category-bar-label,.activity-text { font-size:13px; }
+.activity-time { font-size:12px; }
+.form-section-title p,.aside-card p,.aside-check { font-size:13px; }
+.language-tabs button { font-size:13px; padding:10px 12px; }
+.dropzone strong { font-size:14px; }
+.dropzone span { font-size:12px; }
+.privacy-note { font-size:12px; line-height:1.65; }
+.search-field input,.filter-select { min-height:42px; height:auto; font-size:13px; }
+.issue-table th { padding:13px; font-size:11px; }
+.issue-table td { padding:15px 13px; font-size:13px; line-height:1.5; }
+.issue-title-cell strong { font-size:16px; }
+.issue-title-cell span { font-size:12px; line-height:1.5; }
+.table-footer { font-size:12px; }
+.pagination button { min-width:32px; min-height:32px; font-size:12px; }
+.kanban-head { font-size:13px; }
+.kanban-count,.kanban-card p { font-size:12px; }
+.kanban-card h3 { font-size:17px; line-height:1.35; }
+.kanban-advance { font-size:12px; }
+.detail-panel { padding:22px; }
+.detail-panel h2 { font-size:22px; line-height:1.3; }
+.detail-panel .muted-copy { font-size:14px; line-height:1.7; }
+.summary-card small { font-size:11px; letter-spacing:.45px; }
+.summary-card p { font-size:15px; line-height:1.75; }
+.summary-card.as-summary p { font-size:17px; }
+.match-reason { font-size:13px; line-height:1.65; }
+.match-report span,.timeline-content time { font-size:12px; }
+.timeline-content strong,.timeline-content p { font-size:13px; line-height:1.6; }
+.detail-stat { font-size:12px; }
+.detail-stat strong { font-size:13px; line-height:1.5; }
+.admin-controls label,.cluster-resolution label { font-size:13px; }
+.cluster-resolution textarea { font-size:14px; min-height:92px; }
+.language-distribution-label { font-size:12px; }
+.language-distribution-label strong { font-size:13px; }
+.mobile-bottom-nav a { font-size:11px; }
+.mobile-bottom-nav.role-admin { display:none; }
+.status-awaiting-admin { color:#6f5730; background:#f3e8cb; }
+
+@media (max-width:1080px) {
+  .metric-row-admin { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .metric-row-admin .metric:nth-child(3n+1) { border-left:0; padding-left:0; }
+  .report-dialog-scroll .detail-layout { grid-template-columns:1fr; }
+}
+@media (max-width:800px) {
+  .team-member { grid-template-columns:minmax(0,1fr) auto; gap:12px; }
+  .team-member-access { grid-column:1 / -1; grid-row:2; }
+  .team-save { grid-column:2; grid-row:1; }
+  .team-toolbar { align-items:start; flex-direction:column; }
+  .team-toolbar .search-field { width:100%; }
+  .report-dialog { width:calc(100vw - 20px); height:calc(100dvh - 20px); }
+  .report-dialog-scroll { padding:20px 16px 28px; }
+}
+@media (max-width:560px) {
+  .button { font-size:14px; }
+  .landing-nav .button { font-size:12px; }
+  .landing-nav .language-toggle { font-size:12px; }
+  .crumbs span:first-child,.crumbs span:nth-child(2) { display:none; }
+  .topbar { padding:0 12px; }
+  .topbar-actions { gap:5px; }
+  .topbar .language-toggle { max-width:none; min-height:38px; gap:5px; padding:6px 8px; font-size:12px; }
+  .topbar .language-toggle-label { font-size:0; }
+  .topbar .language-toggle-label::after { content:attr(data-short-label); font-size:12px; }
+  .user-chip { padding-left:8px; gap:0; }
+  .user-chip > div:not(.avatar) { display:none; }
+  .role-switch { max-width:106px; padding:0 5px; font-size:11px; }
+  .metric-row-admin { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .metric-row-admin .metric:nth-child(3n+1) { border-left:1px solid var(--line); padding-left:14px; }
+  .metric-row-admin .metric:nth-child(2n+1) { border-left:0; padding-left:0; }
+  .staff-identity { align-items:start; flex-wrap:wrap; }
+  .staff-identity-note { width:100%; margin-left:56px; }
+  .staff-metrics { grid-template-columns:1fr; gap:9px; }
+  .staff-metrics article { min-height:0; grid-template-columns:1fr auto; align-items:center; padding:13px 15px; }
+  .staff-metrics article strong { grid-column:2; grid-row:1 / span 2; }
+  .staff-metrics article small { grid-column:1; }
+  .staff-queue-heading,.team-toolbar { padding:16px; }
+  .staff-queue-tools { flex-direction:column; padding:12px 16px; }
+  .staff-report-card { align-items:start; flex-direction:column; padding:16px; }
+  .staff-report-state { display:flex; align-items:center; justify-items:start; flex-wrap:wrap; }
+  .staff-report-main h3 { font-size:18px; }
+  .team-member { grid-template-columns:1fr; padding:15px 16px; }
+  .team-member-access { grid-column:auto; grid-row:auto; align-items:stretch; flex-direction:column; }
+  .team-member-access label { min-width:0; }
+  .team-save { grid-column:auto; grid-row:auto; justify-self:start; }
+  .team-member-access .admin-account-note { margin:0; }
+  .report-dialog { width:100vw; height:100dvh; max-height:100dvh; border:0; border-radius:0; }
+  .report-dialog-toolbar { min-height:54px; padding:0 14px; }
+  .report-dialog-scroll { height:calc(100% - 54px); padding:17px 13px 22px; }
+  .report-dialog-scroll .page-heading h1 { font-size:29px; }
+  .admin-review-actions .button,.staff-action-row .button { flex:1 1 100%; }
+  .mobile-bottom-nav.role-admin { display:flex; justify-content:space-around; }
+}

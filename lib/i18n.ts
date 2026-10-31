@@ -7,8 +7,8 @@ export function tr(language: InterfaceLanguage, english: string, assamese: strin
 }
 
 const statusLabels: Record<InterfaceLanguage, Record<ReportStatus, string>> = {
-  en: { "Under review": "Under review", Investigating: "Investigating", "In progress": "In progress", Resolved: "Resolved" },
-  as: { "Under review": "পৰ্যালোচনাধীন", Investigating: "অনুসন্ধান চলি আছে", "In progress": "কাম চলি আছে", Resolved: "সমাধান কৰা হ’ল" },
+  en: { "Under review": "Under review", Investigating: "Investigating", "In progress": "In progress", "Awaiting admin review": "Awaiting admin review", Resolved: "Resolved" },
+  as: { "Under review": "পৰ্যালোচনাধীন", Investigating: "অনুসন্ধান চলি আছে", "In progress": "কাম চলি আছে", "Awaiting admin review": "প্ৰশাসকৰ পৰ্যালোচনাৰ অপেক্ষাত", Resolved: "সমাধান কৰা হ’ল" },
 };
 
 const priorityLabels: Record<InterfaceLanguage, Record<Priority, string>> = {

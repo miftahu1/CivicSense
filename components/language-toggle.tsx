@@ -13,6 +13,6 @@ export function LanguageToggle({ className = "" }: { className?: string }) {
     title={locale === "en" ? "অসমীয়া ইণ্টাৰফেচলৈ সলনি কৰক" : "Switch interface to English"}
     onClick={() => void setLocale(next)}
   >
-    <Globe2 size={14}/>{locale === "as" ? "অসমীয়া" : "English"}<span aria-hidden="true">⌄</span>
+    <Globe2 size={14}/><span className="language-toggle-label" data-short-label={locale === "as" ? "অসমীয়া" : "EN"}>{locale === "as" ? "অসমীয়া" : "English"}</span><span aria-hidden="true">⌄</span>
   </button>;
 }

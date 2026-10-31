@@ -9,7 +9,7 @@ const rawDemoReports = [
     originalLanguage: "Assamese", titleEn: "Water supply out on hostel floor 3", titleAs: "হোষ্টেলৰ তৃতীয় মহলাত পানীৰ যোগান নাই",
     summaryEn: "No water has reached the third floor of the hostel for two days.", summaryAs: "হোষ্টেলৰ তৃতীয় মহলাত দুদিন ধৰি পানীৰ যোগান বন্ধ হৈ আছে।",
     category: "Water supply / plumbing", suggestedPriority: "High", confirmedPriority: "High", priorityExplanation: "An essential service is unavailable across a residential floor.",
-    building: "Moirabari Hostel", area: "Third floor · north wing", status: "In progress", clusterId: "cluster-water", assignedTo: "Facilities team", department: "Facilities & plumbing", sensitive: false, analysisStatus: "complete", createdAt: ago(0, 8), updatedAt: ago(0, 10),
+    building: "Moirabari Hostel", area: "Third floor · north wing", status: "In progress", clusterId: "cluster-water", assignedTo: "Facilities team", assignedDepartment: "Facilities & plumbing", department: "Facilities & plumbing", sensitive: false, analysisStatus: "complete", createdAt: ago(0, 8), updatedAt: ago(0, 10),
     events: [{ id: "e-water-1", actor: "Facilities desk", oldStatus: "Under review", newStatus: "In progress", message: "Plumbing team notified; checking the floor supply line.", createdAt: ago(0, 10) }],
   },
   {

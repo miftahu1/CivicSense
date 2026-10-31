@@ -12,7 +12,7 @@ if(!password||password.length<12) throw new Error("Set DEMO_PASSWORD to a passwo
 const supabase=createClient(url,serviceKey,{auth:{autoRefreshToken:false,persistSession:false}});
 const accounts=[
   {key:"student",email:"student@civicsense.demo",name:"Ananya Saikia",role:"student"},
-  {key:"staff",email:"staff@civicsense.demo",name:"M. Hazarika",role:"staff"},
+  {key:"staff",email:"staff@civicsense.demo",name:"M. Hazarika",role:"staff",department:"Facilities & plumbing"},
   {key:"admin",email:"admin@civicsense.demo",name:"Operations desk",role:"admin"},
 ] as const;
 
@@ -27,7 +27,7 @@ async function main(){
     if(!authUser){const {data,error}=await supabase.auth.admin.createUser({email:account.email,password,email_confirm:true,user_metadata:{full_name:account.name,role:account.role,preferred_language:"en"}});if(error)throw error;authUser=data.user;}
     if(!authUser)throw new Error(`Could not provision ${account.email}`);
     ids[account.key]=authUser.id;
-    const {error}=await supabase.from("profiles").upsert({id:authUser.id,full_name:account.name,role:account.role,preferred_language:"en"},{onConflict:"id"});
+    const {error}=await supabase.from("profiles").upsert({id:authUser.id,full_name:account.name,role:account.role,department:"department" in account ? account.department : null,preferred_language:"en"},{onConflict:"id"});
     if(error)throw error;
   }
   const clusterIds=new Map(demoClusters.map((cluster)=>[cluster.id,stableUuid(`cluster:${cluster.id}`)]));
@@ -35,7 +35,7 @@ async function main(){
   const reportIds=new Map<string,string>();
   for(const report of demoReports){
     const reporter=report.reporterId==="demo-staff"?ids.staff:ids.student;
-    const values={ticket_number:report.ticketNumber,reporter_id:reporter,original_text:report.originalText,original_language:report.originalLanguage,title_en:report.titleEn,title_as:report.titleAs,summary_en:report.summaryEn,summary_as:report.summaryAs,category:report.category,suggested_priority:report.suggestedPriority,confirmed_priority:report.confirmedPriority,priority_explanation:report.priorityExplanation,department:report.department,location_building:report.building,location_area:report.area,status:report.status,cluster_id:report.clusterId?clusterIds.get(report.clusterId):null,assigned_to_name:report.assignedTo,sensitive_flag:report.sensitive,is_synthetic:true,analysis_status:"complete",analysis_confidence:0.92,created_at:report.createdAt,updated_at:report.updatedAt};
+    const values={ticket_number:report.ticketNumber,reporter_id:reporter,original_text:report.originalText,original_language:report.originalLanguage,title_en:report.titleEn,title_as:report.titleAs,summary_en:report.summaryEn,summary_as:report.summaryAs,category:report.category,suggested_priority:report.suggestedPriority,confirmed_priority:report.confirmedPriority,priority_explanation:report.priorityExplanation,department:report.department,assigned_department:report.assignedDepartment||null,location_building:report.building,location_area:report.area,status:report.status,cluster_id:report.clusterId?clusterIds.get(report.clusterId):null,assigned_to_name:report.assignedTo,sensitive_flag:report.sensitive,is_synthetic:true,analysis_status:"complete",analysis_confidence:0.92,created_at:report.createdAt,updated_at:report.updatedAt};
     const {data,error}=await supabase.from("reports").upsert(values,{onConflict:"ticket_number"}).select("id,ticket_number").single();
     if(error)throw error;
     reportIds.set(report.id,data.id);
