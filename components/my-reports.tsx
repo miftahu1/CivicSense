@@ -1,0 +1,20 @@
+"use client";
+
+import Link from "next/link";
+import { useMemo, useState } from "react";
+import { ArrowUpDown, FilePlus2, Languages, MapPin } from "lucide-react";
+import { useWorkspace } from "@/components/workspace-provider";
+import { StatusPill, PriorityPill } from "@/components/report-ui";
+import { formatDate } from "@/lib/format";
+import { languageLabel, reportSummary, reportTitle, tr } from "@/lib/i18n";
+import { statuses } from "@/lib/types";
+
+export function MyReports() {
+  const { user, reports, locale } = useWorkspace();
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("All statuses");
+  const rows = useMemo(() => reports.filter((report) => report.reporterId === user.id).filter((report) => status === "All statuses" || report.status === status).filter((report) => `${report.ticketNumber} ${report.titleEn} ${report.titleAs} ${report.building} ${report.summaryEn} ${report.originalText}`.toLowerCase().includes(search.toLowerCase())).sort((a,b) => b.createdAt.localeCompare(a.createdAt)), [reports,user.id,status,search]);
+  return <><div className="page-heading"><div><div className="section-kicker">{tr(locale,"Your campus · Report history","আপোনাৰ কেম্পাছ · প্ৰতিবেদনৰ ইতিহাস")}</div><h1>{tr(locale,"Your reports","আপোনাৰ প্ৰতিবেদন")}</h1><p>{tr(locale,"Every report and status update, in one place.","প্ৰতিটো প্ৰতিবেদন আৰু স্থিতিৰ আপডেট একে ঠাইতে।")}</p></div><Link className="button button-terracotta" href="/app/new"><FilePlus2 size={15}/> {tr(locale,"New report","নতুন প্ৰতিবেদন")}</Link></div><div className="filter-bar"><div className="search-field"><Languages size={14}/><input aria-label={tr(locale,"Search your reports","আপোনাৰ প্ৰতিবেদন বিচাৰক")} placeholder={tr(locale,"Search ticket, issue, or location","টিকিট, সমস্যা বা স্থান বিচাৰক")} value={search} onChange={(event)=>setSearch(event.target.value)}/></div><select className="filter-select" aria-label={tr(locale,"Filter by status","স্থিতি অনুসৰি ফিল্টাৰ কৰক")} value={status} onChange={(event)=>setStatus(event.target.value)}><option value="All statuses">{tr(locale,"All statuses","সকলো স্থিতি")}</option>{statuses.map((item)=><option key={item} value={item}>{item === "Under review" ? tr(locale,"Under review","পৰ্যালোচনাধীন") : item === "Investigating" ? tr(locale,"Investigating","অনুসন্ধান চলি আছে") : item === "In progress" ? tr(locale,"In progress","কাম চলি আছে") : tr(locale,"Resolved","সমাধান কৰা হ’ল")}</option>)}</select><span className="field-hint">{rows.length} {tr(locale,"reports","টা প্ৰতিবেদন")}</span></div>
+    {rows.length ? <div className="table-wrap"><table className="issue-table"><thead><tr><th>{tr(locale,"Ticket","টিকিট")}</th><th>{tr(locale,"Issue","সমস্যা")}</th><th>{tr(locale,"Location","স্থান")}</th><th>{tr(locale,"Source language","উৎস ভাষা")}</th><th>{tr(locale,"Priority","অগ্ৰাধিকাৰ")}</th><th>{tr(locale,"Status","স্থিতি")}</th><th>{tr(locale,"Submitted","দাখিল")}</th></tr></thead><tbody>{rows.map((report)=><tr key={report.id}><td className="ticket-code">{report.ticketNumber}</td><td className="issue-title-cell"><Link href={`/app/reports/${report.id}`}><strong>{reportTitle(report,locale)}</strong></Link><span>{reportSummary(report,locale)}{report.isSynthetic&&<span className="language-tag" style={{marginLeft:6}}>{tr(locale,"Synthetic demo","કল্পিত ডেম’")}</span>}</span></td><td><MapPin size={11} style={{verticalAlign:"-2px"}}/> {report.building}</td><td>{languageLabel(report.originalLanguage,locale)}</td><td><PriorityPill priority={report.confirmedPriority || report.suggestedPriority} language={locale}/></td><td><StatusPill status={report.status} language={locale}/></td><td>{formatDate(report.createdAt,false,locale)}</td></tr>)}</tbody></table></div> : <div className="panel empty-state"><ArrowUpDown size={20}/><h3>{tr(locale,"No reports match","মিল থকা প্ৰতিবেদন নাই")}</h3><p>{tr(locale,"Try a different search or status, or share your first campus report.","আন এটা শব্দ বা স্থিতি বিচাৰক, নাইবা আপোনাৰ প্ৰথম কেম্পাছ প্ৰতিবেদন দিয়ক।")}</p><Link href="/app/new" className="button button-terracotta button-small">{tr(locale,"Report an issue","সমস্যা জনাওক")}</Link></div>}
+  </>;
+}

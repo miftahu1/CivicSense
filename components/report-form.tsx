@@ -1,0 +1,60 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { toast } from "sonner";
+import { ArrowRight, Check, ImagePlus, Languages, LockKeyhole, MapPin, RotateCcw, Sparkles, UploadCloud, X } from "lucide-react";
+import { useWorkspace } from "@/components/workspace-provider";
+import { categories, type Language, type Report } from "@/lib/types";
+import { categoryLabel, tr } from "@/lib/i18n";
+
+const buildings = ["Moirabari Hostel", "Central Library", "New Arts Building", "Commerce Block", "West Canteen", "Administrative Building", "Health Centre", "Science Block", "Main Campus Grounds", "Other"];
+
+export function ReportForm() {
+  const router = useRouter();
+  const { submitReport, isDemo, locale } = useWorkspace();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [language, setLanguage] = useState<Language>(locale === "as" ? "Assamese" : "English");
+  const [image, setImage] = useState<File | undefined>();
+  const [preview, setPreview] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [text, setText] = useState("");
+  const [building, setBuilding] = useState("");
+  const [area, setArea] = useState("");
+  const [category, setCategory] = useState("");
+
+  function takeFile(file?: File) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { setError(tr(locale, "Choose an image file such as JPEG, PNG, or WebP.", "JPEG, PNG বা WebP-ৰ দৰে আলোকচিত্ৰ বাছক।")); return; }
+    if (file.size > 15 * 1024 * 1024) { setError(tr(locale, "That image is larger than 15 MB. Choose a smaller file.", "আলোকচিত্ৰখন ১৫ MB-তকৈ ডাঙৰ। সৰু ফাইল বাছক।")); return; }
+    setError(""); setImage(file); setPreview(URL.createObjectURL(file));
+  }
+  function removeFile() { setImage(undefined); setPreview(""); if (fileInput.current) fileInput.current.value = ""; }
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setError("");
+    if (text.trim().length < 10) { setError(tr(locale, "Add a little more detail so the campus team can understand the issue.", "কেম্পাছৰ দলে সমস্যাটো বুজিবলৈ অলপ বেছি বিৱৰণ দিয়ক।")); return; }
+    if (!building) { setError(tr(locale, "Choose the campus building where this is happening.", "সমস্যাটো হোৱা কেম্পাছৰ ভৱনটো বাছক।")); return; }
+    setBusy(true);
+    try {
+      const report = await submitReport({ originalText: text, language, building, area, category: category ? category as Report["category"] : undefined, image });
+      toast.success(tr(locale, "Your report has been saved.", "আপোনাৰ প্ৰতিবেদন সংৰক্ষণ কৰা হ’ল।")); router.push(`/app/reports/${report.id}`);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : tr(locale, "We couldn't save your report. Please try again.", "প্ৰতিবেদন সংৰক্ষণ কৰিব পৰা নগ’ল। পুনৰ চেষ্টা কৰক।")); }
+    finally { setBusy(false); }
+  }
+
+  return <><div className="page-heading"><div><div className="section-kicker">{tr(locale, "Campus services · New report", "কেম্পাছ সেৱা · নতুন প্ৰতিবেদন")}</div><h1>{tr(locale, "What needs attention?", "কিহৰ প্ৰতি মনোযোগ দিব লাগে?")}</h1><p>{tr(locale, "Share what you noticed. A location and a few details help the right team respond.", "আপুনি লক্ষ্য কৰা কথাখিনি জনাওক। স্থান আৰু কেইটামান বিৱৰণে সঠিক দলক সঁহাৰি দিবলৈ সহায় কৰে।")}</p></div></div><form onSubmit={onSubmit} className="form-layout" noValidate><div className="panel form-panel">
+    <div className="form-section-title"><span className="section-number">1</span><div><h2>{tr(locale, "Describe the issue", "সমস্যাটোৰ বিৱৰণ দিয়ক")}</h2><p>{tr(locale, "Use the language that feels clearest. Your original words are kept with your report.", "যি ভাষাত স্বচ্ছন্দ, সেই ভাষাতে লিখক। আপোনাৰ মূল কথাখিনি প্ৰতিবেদনৰ সৈতে সংৰক্ষিত থাকিব।")}</p></div></div>
+    <div className="language-tabs" role="tablist" aria-label={tr(locale, "Report language","প্ৰতিবেদনৰ ভাষা")}>{(["English","Assamese","Romanised Assamese","Mixed"] as Language[]).map((item) => <button type="button" role="tab" aria-selected={language===item} className={language===item?"selected":""} key={item} onClick={() => setLanguage(item)}>{item === "Assamese" ? <span className="assamese" lang="as">অসমীয়া</span> : item === "Romanised Assamese" ? tr(locale,"Romanised Assamese","ৰোমানাইজড অসমীয়া") : item === "Mixed" ? tr(locale,"Mixed","মিশ্ৰ") : item}</button>)}</div>
+    <div className="field"><label htmlFor="report-text">{tr(locale, "What happened, and where?", "কি ঘটিল, আৰু ক’ত?")}</label><textarea id="report-text" className={language === "Assamese" ? "assamese" : ""} lang={language === "Assamese" ? "as" : "en"} value={text} onChange={(event) => setText(event.target.value)} maxLength={5000} placeholder={language === "Assamese" ? "সমস্যাটোৰ বিৱৰণ দিয়ক…" : language === "Romanised Assamese" ? "E.g. Hostel r third floor ot pani nai…" : language === "Mixed" ? tr(locale,"Describe it in Assamese, English, or both…","অসমীয়া, ইংৰাজী বা দুয়োটা ভাষাতে সমস্যাটো লিখক…") : tr(locale,"E.g. Water has not reached the third floor of the hostel since this morning…","যেনে: আজি পুৱাৰ পৰা হোষ্টেলৰ তৃতীয় মহলাত পানী নাই…")} required/></div><div className="char-count">{text.length.toLocaleString(locale === "as" ? "as-IN" : "en-IN")} / 5,000</div>
+    <div className="field" style={{marginTop:20}}><label>{tr(locale,"Photograph","আলোকচিত্ৰ")} <span style={{fontWeight:400,color:"#8c928a"}}>· {tr(locale,"optional","ইচ্ছা কৰিলে")}</span></label><div className={`dropzone ${dragging?"dragging":""}`} onDragEnter={(event) => {event.preventDefault();setDragging(true);}} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragging(false)} onDrop={(event) => {event.preventDefault();setDragging(false);takeFile(event.dataTransfer.files[0]);}}><input ref={fileInput} aria-label={tr(locale,"Choose a photograph","আলোকচিত্ৰ বাছক")} type="file" accept="image/jpeg,image/png,image/webp,image/heic" capture="environment" onChange={(event) => takeFile(event.target.files?.[0])}/><div><UploadCloud size={20} className="dropzone-icon"/><strong>{tr(locale,"Drop a photo here, or tap to choose","আলোকচিত্ৰ ইয়ালৈ টানি আনক বা বাছিবলৈ টিপক")}</strong><span>{tr(locale,"JPEG, PNG, WebP or HEIC · up to 15 MB · photos stay private","JPEG, PNG, WebP বা HEIC · সৰ্বাধিক ১৫ MB · আলোকচিত্ৰ ব্যক্তিগতভাৱে সংৰক্ষিত হয়")}</span></div></div>{preview && <div className="image-preview"><Image src={preview} alt={tr(locale,"Preview of the selected campus issue","বাছনি কৰা কেম্পাছ সমস্যাৰ আলোকচিত্ৰৰ পূৰ্বদৃশ্য")} width={440} height={330} unoptimized/><button type="button" className="remove-image" aria-label={tr(locale,"Remove photo","আলোকচিত্ৰ আঁতৰাওক")} onClick={removeFile}><X size={14}/></button></div>}</div>
+    <div className="form-section-title" style={{marginTop:30}}><span className="section-number">2</span><div><h2>{tr(locale,"Place it on the map","স্থান বাছনি কৰক")}</h2><p>{tr(locale,"Choose a building and add a room, floor, or nearby landmark.","ভৱন বাছি কোঠা, মহলা বা ওচৰৰ চিনাকি স্থান উল্লেখ কৰক।")}</p></div></div>
+    <div className="location-grid"><div className="field"><label htmlFor="building">{tr(locale,"Building or campus area","ভৱন বা কেম্পাছৰ ঠাই")}</label><select id="building" value={building} onChange={(event) => setBuilding(event.target.value)} required><option value="">{tr(locale,"Choose a location","স্থান বাছক")}</option>{buildings.map((item) => <option key={item}>{item}</option>)}</select></div><div className="field"><label htmlFor="area">{tr(locale,"Room, floor, or landmark","কোঠা, মহলা বা চিনাকি স্থান")}</label><input id="area" value={area} onChange={(event) => setArea(event.target.value)} maxLength={120} placeholder={tr(locale,"e.g. Third floor · north wing","যেনে: তৃতীয় মহলা · উত্তৰ অংশ")}/></div></div>
+    <div className="form-section-title" style={{marginTop:8}}><span className="section-number">3</span><div><h2>{tr(locale,"Help us route it","সঠিক দললৈ পঠিয়াবলৈ সহায় কৰক")}</h2><p>{tr(locale,"Pick a category, or let the AI suggest one from your report.","শ্ৰেণী বাছক, অথবা প্ৰতিবেদনৰ পৰা এআইক পৰামৰ্শ দিবলৈ দিয়ক।")}</p></div></div>
+    <div className="field"><label htmlFor="category">{tr(locale,"Issue category","সমস্যাৰ শ্ৰেণী")}</label><select id="category" value={category} onChange={(event) => setCategory(event.target.value)}><option value="">{tr(locale,"Suggest a category automatically","শ্ৰেণী স্বয়ংক্ৰিয়ভাৱে পৰামৰ্শ দিয়ক")}</option>{categories.map((item) => <option key={item} value={item}>{categoryLabel(item, locale)}</option>)}</select><span className="field-hint"><Sparkles size={11} style={{verticalAlign:"-2px"}}/> {isDemo ? tr(locale,"Live analysis is available when Gemini is configured.","Gemini সংযোগ কৰিলে প্ৰকৃত এআই বিশ্লেষণ উপলব্ধ হ’ব।") : tr(locale,"CivicSense will compare the report and photograph to suggest a category and priority.","CivicSense-এ প্ৰতিবেদন আৰু আলোকচিত্ৰ পৰ্যালোচনা কৰি শ্ৰেণী আৰু অগ্ৰাধিকাৰ পৰামৰ্শ দিব।")}</span></div>
+    {error && <p className="error-text" role="alert">{error}</p>}
+    <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",marginTop:9,paddingTop:17,borderTop:"1px solid #e6e4dc"}}><span className="field-hint">{busy ? <><RotateCcw size={12} className="spin-icon"/> {tr(locale,"Saving and preparing the report…","প্ৰতিবেদন সংৰক্ষণ আৰু প্ৰস্তুত কৰা হৈছে…")}</> : tr(locale,"You can review the report after it is submitted.","দাখিলৰ পিছত প্ৰতিবেদন পৰ্যালোচনা কৰিব পাৰিব।")}</span><button className="button button-terracotta" disabled={busy}>{busy ? tr(locale,"Submitting…","দাখিল কৰা হৈছে…") : <>{tr(locale,"Submit report","প্ৰতিবেদন দাখিল কৰক")} <ArrowRight size={14}/></>}</button></div>
+  </div><aside className="form-aside"><section className="aside-card"><div className="section-kicker">{tr(locale,"A useful report","এটা সহায়ক প্ৰতিবেদন")}</div><h3>{tr(locale,"Small details make a difference.","সৰু বিৱৰণেও সহায় কৰে।")}</h3><p>{tr(locale,"Give the campus team enough context to find the issue and understand what needs to happen next.","কেম্পাছৰ দলক সমস্যাটো বিচাৰি আৰু পৰৱৰ্তী পদক্ষেপ বুজিবলৈ প্ৰয়োজনীয় তথ্য দিয়ক।")}</p><div className="aside-checklist"><div className="aside-check"><Check size={14}/>{tr(locale,"Describe what you can see or hear","আপুনি দেখা বা শুনা কথাখিনি লিখক")}</div><div className="aside-check"><MapPin size={14}/>{tr(locale,"Name the building and nearby location","ভৱন আৰু ওচৰৰ স্থান উল্লেখ কৰক")}</div><div className="aside-check"><ImagePlus size={14}/>{tr(locale,"Add a photo if it helps explain the issue","সহায় হ’লে আলোকচিত্ৰ যোগ কৰক")}</div><div className="aside-check assamese" lang="as"><Languages size={14}/>অসমীয়া, ৰোমানাইজড অসমীয়া বা ইংৰাজীত লিখিব পাৰে</div></div></section><div className="privacy-note"><LockKeyhole size={15}/><span>{tr(locale,"Only you and authorised campus staff can see your report and its attachments. Your original wording stays unchanged.","আপুনি আৰু অনুমোদিত কেম্পাছ কৰ্মচাৰীয়েহে প্ৰতিবেদন আৰু আলোকচিত্ৰ চাব পাৰে। আপোনাৰ মূল কথাখিনি সলনি নহয়।")}</span></div><section className="aside-card" style={{background:"#f0eee5"}}><h3>{tr(locale,"What happens next?","ইয়াৰ পিছত কি হ’ব?")}</h3><p>{tr(locale,"Your report is saved first. The analysis then prepares a bilingual summary and suggests related reports. A campus team reviews those suggestions and confirms any grouping.","প্ৰথমে আপোনাৰ প্ৰতিবেদন সংৰক্ষণ কৰা হয়। তাৰ পিছত বিশ্লেষণে দুয়োটা ভাষাত সাৰাংশ তৈয়াৰ কৰি সম্পৰ্কিত প্ৰতিবেদন পৰামৰ্শ দিয়ে। কেম্পাছৰ দলে পৰামৰ্শ পৰ্যালোচনা কৰি একেলগ কৰা নিশ্চিত কৰে।")}</p></section></aside></form></>;
+}
