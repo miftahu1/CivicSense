@@ -4,8 +4,8 @@ export async function GET() {
   try {
     const { admin } = await requireAdmin();
     const [reportsResult, clusterResult, eventsResult] = await Promise.all([
-      admin.from("reports").select("status,category,original_language,suggested_priority,confirmed_priority,created_at"),
-      admin.from("issue_clusters").select("id,status,created_at").order("created_at", { ascending: false }).limit(8),
+      admin.from("reports").select("id,status,category,original_language,suggested_priority,confirmed_priority,created_at").eq("is_synthetic", false),
+      admin.from("issue_clusters").select("id,status,created_at").eq("is_synthetic", false).order("created_at", { ascending: false }).limit(8),
       admin.from("report_events").select("id,message,created_at,report_id").order("created_at", { ascending: false }).limit(10),
     ]);
     if (reportsResult.error) throw reportsResult.error;
@@ -13,7 +13,8 @@ export async function GET() {
     if (eventsResult.error) throw eventsResult.error;
     const reports = reportsResult.data || [];
     const clusters = clusterResult.data || [];
-    const events = eventsResult.data || [];
+    const liveReportIds = new Set(reports.map((row) => row.id));
+    const events = (eventsResult.data || []).filter((event) => liveReportIds.has(event.report_id));
     const count = (predicate: (row: (typeof reports)[number]) => boolean) => reports.filter(predicate).length;
     const categories = Object.entries(reports.reduce<Record<string, number>>((acc, row) => { acc[row.category] = (acc[row.category] || 0) + 1; return acc; }, {})).map(([category, total]) => ({ category, total })).sort((a, b) => b.total - a.total);
     const priorities = ["Urgent", "High", "Medium", "Low"].map((priority) => ({ priority, total: reports.filter((row) => (row.confirmed_priority || row.suggested_priority) === priority && row.status !== "Resolved").length }));

@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { ArrowRight, ArrowUpRight, CircleDot, FilePlus2, Languages, MapPin, ShieldCheck, Sparkles } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useWorkspace } from "@/components/workspace-provider";
-import { toast } from "sonner";
 import { PriorityPill, StatusPill } from "@/components/report-ui";
 import { categoryLabel, languageLabel, reportSummary, reportTitle, tr } from "@/lib/i18n";
 import { formatDate, timeAgo } from "@/lib/format";
@@ -16,7 +16,14 @@ function PanelTitle({ title, href, action }: { title: string; href?: string; act
 }
 
 export function Dashboard({ admin = false }: { admin?: boolean }) {
-  const { user, reports, clusters, isDemo, locale, resetDemo } = useWorkspace();
+  const { user, reports, clusters, isDemo, locale } = useWorkspace();
+  const [localHour, setLocalHour] = useState<number | null>(null);
+  useEffect(() => {
+    const updateLocalHour = () => setLocalHour(new Date().getHours());
+    updateLocalHour();
+    const timer = window.setInterval(updateLocalHour, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const rows = admin ? reports : reports.filter((report) => report.reporterId === user.id);
   const sorted = [...rows].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const open = rows.filter((report) => report.status !== "Resolved").length;
@@ -34,11 +41,18 @@ export function Dashboard({ admin = false }: { admin?: boolean }) {
   const activities = rows.flatMap((report) => report.events.map((event) => ({ ...event, report }))).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 4);
   const suggestedCluster = clusters.find((cluster) => cluster.reportIds.some((id) => rows.some((report) => report.id === id)));
   const isAs = locale === "as";
+  const greeting = localHour === null
+    ? tr(locale, "Hello", "নমস্কাৰ")
+    : localHour >= 5 && localHour < 12
+      ? tr(locale, "Good morning", "সুপ্ৰভাত")
+      : localHour >= 12 && localHour < 17
+        ? tr(locale, "Good afternoon", "শুভ দুপৰীয়া")
+        : tr(locale, "Good evening", "শুভ সন্ধিয়া");
 
   if (admin && user.role !== "admin" && !isDemo) return <div className="panel empty-state"><ShieldCheck size={23}/><h3>{tr(locale, "Administrator access required", "প্ৰশাসকৰ অনুমতি প্ৰয়োজন")}</h3><p>{tr(locale, "Sign in with an authorised campus operations account to see the all-campus overview.", "সমগ্ৰ কেম্পাছৰ পৰিচিতি চাবলৈ অনুমোদিত কেম্পাছ পৰিচালনা একাউণ্টেৰে ছাইন ইন কৰক।")}</p><Link href="/login" className="button button-primary button-small">{tr(locale, "Sign in", "ছাইন ইন")}</Link></div>;
 
   return <>
-    <div className="page-heading"><div><div className="section-kicker">{admin ? tr(locale, "Campus operations · live overview", "কেম্পাছ পৰিচালনা · লাইভ পৰিচিতি") : `${tr(locale, "Your campus", "আপোনাৰ কেম্পাছ")} · ${formatDate(new Date().toISOString(), false, locale)}`}</div><h1>{admin ? tr(locale, "The campus, at a glance.", "কেম্পাছৰ এটা সামগ্ৰিক ছবি।") : `${tr(locale, "Good morning", "সুপ্ৰভাত")}, ${displayName}.`}</h1><p>{admin ? tr(locale, "A considered view of open concerns, team activity, and issues moving toward resolution.", "মুকলি সমস্যা, দলৰ কাম আৰু সমাধানৰ দিশে আগবঢ়া প্ৰতিবেদনৰ চিত্ৰ।") : tr(locale, "Here’s where your reports stand. If something needs attention, let us know.", "আপোনাৰ প্ৰতিবেদনসমূহৰ শেহতীয়া স্থিতি ইয়াত চাওক। নতুন সমস্যা থাকিলে আমাক জনাওক।")}</p></div><div className="heading-actions">{admin ? <><Link href="/admin/issues" className="button button-outline button-small">{tr(locale, "Open issue desk", "অভিযোগৰ ডেস্ক খোলক")} <ArrowUpRight size={13}/></Link>{isDemo&&<button className="button button-outline button-small" onClick={()=>{if(window.confirm(tr(locale,"Reset this browser’s fictional demonstration reports to their original sample state? Demo edits will be discarded.","এই ব্ৰাউজাৰৰ কল্পিত ডেম’ প্ৰতিবেদনসমূহ মূল অৱস্থালৈ ঘূৰাই আনিবনে? ডেম’ত কৰা সলনি হেৰাই যাব।"))){resetDemo();toast.success(tr(locale,"Demonstration data restored.","ডেম’ তথ্য পুনৰ স্থাপন কৰা হ’ল।"));}}}>{tr(locale,"Reset demo data","ডেম’ তথ্য পুনৰ স্থাপন")}</button>}</> : <Link href="/app/new" className="button button-terracotta"><FilePlus2 size={15}/> {tr(locale, "Report an issue", "সমস্যা জনাওক")}</Link>}</div></div>
+    <div className="page-heading"><div><div className="section-kicker">{admin ? tr(locale, "Campus operations · live overview", "কেম্পাছ পৰিচালনা · লাইভ পৰিচিতি") : `${tr(locale, "Your campus", "আপোনাৰ কেম্পাছ")} · ${formatDate(new Date().toISOString(), false, locale)}`}</div><h1>{admin ? tr(locale, "The campus, at a glance.", "কেম্পাছৰ এটা সামগ্ৰিক ছবি।") : `${greeting}, ${displayName}.`}</h1><p>{admin ? tr(locale, "A considered view of open concerns, team activity, and issues moving toward resolution.", "মুকলি সমস্যা, দলৰ কাম আৰু সমাধানৰ দিশে আগবঢ়া প্ৰতিবেদনৰ চিত্ৰ।") : tr(locale, "Here’s where your reports stand. If something needs attention, let us know.", "আপোনাৰ প্ৰতিবেদনসমূহৰ শেহতীয়া স্থিতি ইয়াত চাওক। নতুন সমস্যা থাকিলে আমাক জনাওক।")}</p></div><div className="heading-actions">{admin ? <><Link href="/admin/issues" className="button button-outline button-small">{tr(locale, "Open issue desk", "অভিযোগৰ ডেস্ক খোলক")} <ArrowUpRight size={13}/></Link></> : <Link href="/app/new" className="button button-terracotta"><FilePlus2 size={15}/> {tr(locale, "Report an issue", "সমস্যা জনাওক")}</Link>}</div></div>
     {!isDemo && rows.some((report)=>report.isSynthetic) && <div className="demo-banner"><ShieldCheck size={14}/><span>{tr(locale,"This dashboard includes clearly labelled synthetic demonstration reports alongside live records.","এই পৰিচিতিত লাইভ তথ্যৰ লগতে স্পষ্টভাৱে চিহ্নিত কল্পিত ডেম’ প্ৰতিবেদনো আছে।")}</span></div>}
     <section className={`metric-row ${admin ? "metric-row-admin" : ""}`} aria-label={tr(locale,"Report summary","প্ৰতিবেদনৰ সাৰাংশ")}>
       <div className="metric"><div className="metric-label">{admin ? tr(locale,"Active reports","সক্ৰিয় প্ৰতিবেদন") : tr(locale,"Open reports","মুকলি প্ৰতিবেদন")}</div><div className="metric-value">{open}</div><div className="metric-note">{tr(locale,"Not yet resolved","এতিয়াও সমাধান হোৱা নাই")}</div></div>

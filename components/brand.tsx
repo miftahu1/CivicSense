@@ -1,8 +1,10 @@
 import Link from "next/link";
+import Image from "next/image";
+import logo from "@/src/assets/logo.webp";
 
 export function Brand({ light = false, href = "/" }: { light?: boolean; href?: string }) {
   return <Link href={href} className={`brand ${light ? "brand-light" : ""}`} aria-label="CivicSense home">
-    <span className="brand-mark" aria-hidden="true"><svg width="34" height="34" viewBox="0 0 34 34" fill="none"><path d="M5 26V8h3.8l8.3 10.6L25.2 8H29v18h-4V14.8l-7.9 9.8-8-9.8V26H5Z" fill={light ? "#D5B96B" : "#1E302B"}/><path d="M4 29.5h26" stroke={light ? "#9DAB9F" : "#87958C"} strokeWidth="1.4"/></svg></span>
+    <span className="brand-mark" aria-hidden="true"><Image src={logo} alt="" width={48} height={42} className="brand-image" priority={href === "/"}/></span>
     <span className="brand-name">civic<span>sense</span></span>
   </Link>;
 }

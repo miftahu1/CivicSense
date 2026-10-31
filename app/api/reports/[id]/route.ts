@@ -5,7 +5,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   try {
     const { id } = await context.params;
     const { admin, profile } = await requireUser();
-    const { data: row, error } = await admin.from("reports").select("*").eq("id", id).maybeSingle();
+    const { data: row, error } = await admin.from("reports").select("*").eq("id", id).eq("is_synthetic", false).maybeSingle();
     if (error) throw error;
     const assignedStaff = profile.role === "staff" && Boolean(profile.department) && row?.assigned_department === profile.department;
     if (!row || (profile.role !== "admin" && row.reporter_id !== profile.id && !assignedStaff)) return Response.json({ error: "Report not found." }, { status: 404 });

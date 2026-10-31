@@ -10,7 +10,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const { admin, user, profile } = await requireAdmin();
     const parsed = assignmentSchema.safeParse(await request.json());
     if (!parsed.success) return Response.json({ error: "Provide a team name or null to unassign." }, { status: 400 });
-    const { data: report, error: loadError } = await admin.from("reports").select("id").eq("id", id).maybeSingle();
+    const { data: report, error: loadError } = await admin.from("reports").select("id").eq("id", id).eq("is_synthetic", false).maybeSingle();
     if (loadError) throw loadError;
     if (!report) return Response.json({ error: "Report not found." }, { status: 404 });
     const name = parsed.data.assignedTo || null;

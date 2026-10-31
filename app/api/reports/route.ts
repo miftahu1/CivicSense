@@ -1,12 +1,12 @@
 import { reportInputSchema } from "@/lib/schemas";
 import { authErrorResponse, requireUser } from "@/lib/supabase/server";
 import { loadReports } from "@/lib/db-mappers";
-import { appendEvent, getMappedReport, imageExtension, imageTypeAllowed, processSavedReport } from "@/lib/report-service";
+import { appendEvent, getMappedReport, imageContentMatches, imageExtension, imageTypeAllowed, processSavedReport } from "@/lib/report-service";
 
 export async function GET() {
   try {
     const { admin, profile } = await requireUser();
-    let query = admin.from("reports").select("*").order("created_at", { ascending: false }).limit(500);
+    let query = admin.from("reports").select("*").eq("is_synthetic", false).order("created_at", { ascending: false }).limit(500);
     if (profile.role !== "admin") query = query.eq("reporter_id", profile.id);
     const { data, error } = await query;
     if (error) throw error;
@@ -23,6 +23,11 @@ export async function POST(request: Request) {
     const file = form.get("image");
     if (file && file instanceof File && file.size > 15 * 1024 * 1024) return Response.json({ error: "Images must be 15 MB or smaller." }, { status: 413 });
     if (file && file instanceof File && file.size > 0 && !imageTypeAllowed(file.type)) return Response.json({ error: "Use a JPEG, PNG, WebP, or HEIC image." }, { status: 415 });
+    const { data: canSubmit, error: limitError } = await admin.rpc("consume_report_submission_slot", { p_user_id: user.id, p_limit: 10 });
+    if (limitError) throw limitError;
+    if (!canSubmit) return Response.json({ error: "You have reached the report limit. Try again in about an hour." }, { status: 429, headers: { "Retry-After": "3600", "Cache-Control": "no-store" } });
+    const fileBytes = file instanceof File && file.size > 0 ? Buffer.from(await file.arrayBuffer()) : null;
+    if (file instanceof File && fileBytes && !imageContentMatches(file.type, fileBytes)) return Response.json({ error: "The selected file does not match its image type." }, { status: 415 });
 
     // Persist the original before image processing or any Gemini request.
     const { data: row, error: insertError } = await admin.from("reports").insert({
@@ -30,7 +35,7 @@ export async function POST(request: Request) {
       category: parsed.data.category || "Other", location_building: parsed.data.building, location_area: parsed.data.area,
       status: "Under review", analysis_status: "pending",
     }).select("*").single();
-    if (insertError || !row) return Response.json({ error: insertError?.message || "The report could not be saved." }, { status: 500 });
+    if (insertError || !row) { console.error("Report insert failed", insertError); return Response.json({ error: "The report could not be saved. Please try again." }, { status: 500 }); }
     try { await appendEvent(admin, { reportId: row.id, actorId: user.id, actorName: profile.full_name, newStatus: "Under review", message: "Report received and queued for analysis." }); }
     catch (eventError) { console.error("Report event could not be recorded", eventError); }
 
@@ -38,11 +43,11 @@ export async function POST(request: Request) {
     let hasImage = false;
     if (file instanceof File && file.size > 0) {
       const path = `${row.id}/${crypto.randomUUID()}${imageExtension(file.type)}`;
-      const { error: uploadError } = await admin.storage.from("report-attachments").upload(path, Buffer.from(await file.arrayBuffer()), { contentType: file.type, upsert: false });
-      if (uploadError) attachmentError = `Photo could not be stored: ${uploadError.message}`;
+      const { error: uploadError } = await admin.storage.from("report-attachments").upload(path, fileBytes!, { contentType: file.type, upsert: false });
+      if (uploadError) { console.error("Report photo upload failed", uploadError); attachmentError = "Photo could not be stored. The written report is still saved."; }
       else {
         const { error: attachmentInsertError } = await admin.from("attachments").insert({ report_id: row.id, storage_path: path, mime_type: file.type, size_bytes: file.size });
-        if (attachmentInsertError) { await admin.storage.from("report-attachments").remove([path]); attachmentError = "Photo was stored but its attachment record could not be created."; }
+        if (attachmentInsertError) { console.error("Report attachment record insert failed", attachmentInsertError); await admin.storage.from("report-attachments").remove([path]); attachmentError = "Photo could not be attached. The written report is still saved."; }
         else hasImage = true;
       }
     }
@@ -50,7 +55,8 @@ export async function POST(request: Request) {
     let result: Awaited<ReturnType<typeof processSavedReport>> | null = null;
     try { result = await processSavedReport(admin, row.id, false); }
     catch (analysisError) {
-      const message = analysisError instanceof Error ? analysisError.message.slice(0, 500) : "Analysis could not be completed.";
+      console.error("Saved report processing failed", analysisError);
+      const message = "AI processing could not be completed. An administrator can retry.";
       await admin.from("reports").update({ analysis_status: "failed", analysis_error: message }).eq("id", row.id);
     }
     if (attachmentError) {

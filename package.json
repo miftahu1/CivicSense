@@ -8,7 +8,6 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "seed:demo": "tsx scripts/seed-demo.ts",
     "eval:matching": "tsx scripts/evaluate-matching.ts"
   },
   "dependencies": {

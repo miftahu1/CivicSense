@@ -15,6 +15,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message || "Add a status and work note." }, { status: 400 });
 
     const { data: report, error: reportError } = await admin.from("reports").select("id,status,assigned_department")
+      .eq("is_synthetic", false)
       .eq("id", id).eq("assigned_department", profile.department).maybeSingle();
     if (reportError) throw reportError;
     if (!report) return Response.json({ error: "This report is not assigned to your department." }, { status: 404 });

@@ -12,7 +12,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
-  const { locale } = useWorkspace();
+  const { locale, activateSession } = useWorkspace();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const isSignup = mode === "signup";
@@ -21,20 +21,19 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email") || "").trim(); const password = String(form.get("password") || "");
     const supabase = createSupabaseBrowserClient();
-    if (!supabase) { setError(tr(locale, "Authentication is not connected yet. Add the Supabase URL and anon key to .env.local, or enter the demonstration workspace.", "প্ৰমাণীকৰণ এতিয়াও সংযোগ কৰা হোৱা নাই। .env.local-ত Supabase URL আৰু anon key যোগ কৰক, অথবা ডেম’ ৱৰ্কস্পেচত প্ৰৱেশ কৰক।")); setBusy(false); return; }
+    if (!supabase) { setError(tr(locale, "Sign in is temporarily unavailable because Supabase is not configured. Contact the campus administrator.", "প্ৰমাণীকৰণ এতিয়াও সংযোগ কৰা হোৱা নাই। Supabase সংযোগ কৰা হোৱা নাই। কেম্পাছ প্ৰশাসকৰ সৈতে যোগাযোগ কৰক।")); setBusy(false); return; }
     try {
       if (isSignup) {
         const { data, error: authError } = await supabase.auth.signUp({ email, password, options: { data: { full_name: String(form.get("name") || "").trim(), preferred_language: String(form.get("language") || "en") } } });
         if (authError) throw authError;
-        if (!data.session) { toast.success(tr(locale, "Account created. Check your email to confirm it, then sign in.", "একাউণ্ট সৃষ্টি কৰা হ’ল। ইমেইল নিশ্চিত কৰি তাৰ পিছত ছাইন ইন কৰক।")); router.push("/login"); }
-        else { toast.success(tr(locale, "Your account is ready.", "আপোনাৰ একাউণ্ট প্ৰস্তুত।")); router.push("/app"); }
+        if (!data.session) { toast.success(tr(locale, "Account created. Check your email to confirm it, then sign in.", "একাউণ্ট সৃষ্টি কৰা হ’ল। ইমেইল নিশ্চিত কৰি তাৰ পিছত ছাইন ইন কৰক।")); router.replace("/login"); }
+        else { const role = await activateSession(); toast.success(tr(locale, "Your account is ready.", "আপোনাৰ একাউণ্ট প্ৰস্তুত।")); router.replace(role === "admin" ? "/admin" : role === "staff" ? "/staff" : "/app"); }
       } else {
-        const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+        const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
         if (authError) throw authError;
-        const { data: profile } = data.user ? await supabase.from("profiles").select("role").eq("id", data.user.id).single() : { data: null };
-        toast.success(tr(locale, "Welcome back.", "পুনৰ স্বাগতম।")); router.push(profile?.role === "admin" ? "/admin" : profile?.role === "staff" ? "/staff" : "/app");
+        const role = await activateSession();
+        toast.success(tr(locale, "Welcome back.", "পুনৰ স্বাগতম।")); router.replace(role === "admin" ? "/admin" : role === "staff" ? "/staff" : "/app");
       }
-      router.refresh();
     } catch (caught) { setError(caught instanceof Error ? caught.message : tr(locale, "We couldn't complete that request.", "অনুৰোধটো সম্পূৰ্ণ কৰিব পৰা নগ’ল।")); }
     finally { setBusy(false); }
   }
@@ -44,5 +43,5 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     <div className="field"><label htmlFor="password">{tr(locale,"Password","পাছৱৰ্ড")}</label><input id="password" name="password" type="password" autoComplete={isSignup ? "new-password" : "current-password"} placeholder={tr(locale,"At least 8 characters","কমেও ৮টা আখৰ")} required minLength={8}/></div>
     {isSignup && <div className="field"><label htmlFor="language">{tr(locale,"Preferred language","পছন্দৰ ভাষা")}</label><select id="language" name="language" defaultValue={locale}><option value="en">English</option><option value="as">অসমীয়া</option></select></div>}
     {error && <p className="error-text" role="alert">{error}</p>}<button className="button button-primary" type="submit" disabled={busy} style={{width:"100%",marginTop:8}}>{busy ? tr(locale,"Please wait…","অপেক্ষা কৰক…") : isSignup ? tr(locale,"Create account","একাউণ্ট সৃষ্টি কৰক") : tr(locale,"Sign in","ছাইন ইন")}</button>
-  </form><div className="auth-switch">{isSignup ? <>{tr(locale,"Already have an account?","ইতিমধ্যে একাউণ্ট আছে নেকি?")} <Link href="/login">{tr(locale,"Sign in","ছাইন ইন")}</Link></> : <>{tr(locale,"New to CivicSense?","CivicSense-লৈ নতুন নেকি?")} <Link href="/signup">{tr(locale,"Create an account","একাউণ্ট সৃষ্টি কৰক")}</Link></>}</div><div className="auth-switch" style={{marginTop:13}}><Link href="/app">{tr(locale,"Continue with synthetic demo data →","কল্পিত ডেম’ তথ্যৰে আগবাঢ়ক →")}</Link></div></div></main></div>;
+  </form><div className="auth-switch">{isSignup ? <>{tr(locale,"Already have an account?","ইতিমধ্যে একাউণ্ট আছে নেকি?")} <Link href="/login">{tr(locale,"Sign in","ছাইন ইন")}</Link></> : <>{tr(locale,"New to CivicSense?","CivicSense-লৈ নতুন নেকি?")} <Link href="/signup">{tr(locale,"Create an account","একাউণ্ট সৃষ্টি কৰক")}</Link></>}</div></div></main></div>;
 }

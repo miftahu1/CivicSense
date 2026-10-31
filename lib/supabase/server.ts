@@ -53,7 +53,10 @@ export async function requireStaff() {
 
 export function authErrorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "Unexpected error";
-  const status = message === "UNAUTHORIZED" ? 401 : message === "FORBIDDEN" || message === "STAFF_DEPARTMENT_REQUIRED" || message === "PROFILE_MISSING" ? 403 : 500;
-  const safeMessage = message === "UNAUTHORIZED" ? "Please sign in to continue." : message === "FORBIDDEN" ? "You do not have access to this operation." : message === "STAFF_DEPARTMENT_REQUIRED" ? "Your staff account needs a campus department assignment." : message;
-  return Response.json({ error: safeMessage }, { status });
+  if (message === "UNAUTHORIZED") return Response.json({ error: "Please sign in to continue." }, { status: 401 });
+  if (message === "FORBIDDEN") return Response.json({ error: "You do not have access to this operation." }, { status: 403 });
+  if (message === "STAFF_DEPARTMENT_REQUIRED") return Response.json({ error: "Your staff account needs a campus department assignment." }, { status: 403 });
+  if (message === "PROFILE_MISSING") return Response.json({ error: "Your account is not fully set up. Contact the campus administrator." }, { status: 403 });
+  console.error("CivicSense API request failed", error);
+  return Response.json({ error: "The request could not be completed. Please try again." }, { status: 500 });
 }

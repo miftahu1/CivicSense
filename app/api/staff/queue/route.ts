@@ -5,6 +5,7 @@ export async function GET() {
   try {
     const { admin, profile } = await requireStaff();
     const { data, error } = await admin.from("reports").select("*")
+      .eq("is_synthetic", false)
       .eq("assigned_department", profile.department)
       .neq("status", "Resolved")
       .order("updated_at", { ascending: false })

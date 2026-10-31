@@ -8,7 +8,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const { admin, user, profile } = await requireAdmin();
     const parsed = updateReportSchema.safeParse(await request.json());
     if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message || "Invalid report update." }, { status: 400 });
-    const { data: before, error: loadError } = await admin.from("reports").select("id,status,category,suggested_priority,confirmed_priority,assigned_department,assigned_to_name").eq("id", id).maybeSingle();
+    const { data: before, error: loadError } = await admin.from("reports").select("id,status,category,suggested_priority,confirmed_priority,assigned_department,assigned_to_name").eq("id", id).eq("is_synthetic", false).maybeSingle();
     if (loadError) throw loadError;
     if (!before) return Response.json({ error: "Report not found." }, { status: 404 });
     const input = parsed.data;

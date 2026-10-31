@@ -8,8 +8,16 @@ const allowedExtensions: Record<string, string> = { "image/jpeg": ".jpg", "image
 export const imageTypeAllowed = (mime: string) => allowedImages.has(mime);
 export const imageExtension = (mime: string) => allowedExtensions[mime] || ".img";
 
+export function imageContentMatches(mime: string, bytes: Buffer) {
+  if (mime === "image/jpeg") return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (mime === "image/png") return bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  if (mime === "image/webp") return bytes.length >= 12 && bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WEBP";
+  if (mime === "image/heic") return bytes.length >= 12 && bytes.toString("ascii", 4, 8) === "ftyp" && ["heic", "heix", "hevc", "hevx", "mif1", "msf1"].includes(bytes.toString("ascii", 8, 12));
+  return false;
+}
+
 export async function getReportRow(admin: SupabaseClient, reportId: string) {
-  const { data, error } = await admin.from("reports").select("*").eq("id", reportId).maybeSingle();
+  const { data, error } = await admin.from("reports").select("*").eq("id", reportId).eq("is_synthetic", false).maybeSingle();
   if (error) throw error;
   return data;
 }
@@ -42,7 +50,7 @@ export async function findSimilarReports(admin: SupabaseClient, input: { text: s
 
 export async function buildSimilarReports(admin: SupabaseClient, values: Array<{ report_id: string; similarity: number; location_match: boolean }>, source: { language: Language }, isAdmin: boolean): Promise<SimilarReport[]> {
   if (!values.length) return [];
-  const { data, error } = await admin.from("reports").select("*").in("id", values.map((value) => value.report_id)).neq("status", "Resolved");
+  const { data, error } = await admin.from("reports").select("*").in("id", values.map((value) => value.report_id)).eq("is_synthetic", false).neq("status", "Resolved");
   if (error || !data?.length) return [];
   const mapped = await loadReports(admin, data);
   const byId = new Map(mapped.map((report) => [report.id, report]));
@@ -69,18 +77,19 @@ export async function processSavedReport(admin: SupabaseClient, reportId: string
   const { data: attachment } = await admin.from("attachments").select("storage_path,mime_type,image_caption").eq("report_id", reportId).maybeSingle();
   if (attachment) {
     const { data: downloaded, error } = await admin.storage.from("report-attachments").download(attachment.storage_path);
-    if (error) analysisError = `Photo could not be read; the original text will still be analysed. ${error.message.slice(0, 300)}`;
+    if (error) { console.error("Report attachment could not be downloaded", error); analysisError = "The attached photo could not be read; the original text will still be analyzed."; }
     else image = { mimeType: attachment.mime_type, bytes: Buffer.from(await downloaded.arrayBuffer()) };
   }
   let analysis: Awaited<ReturnType<typeof analyzeReport>> | null = null;
   let embeddingValues: number[] | null = null;
   try { analysis = await analyzeReport({ text: row.original_text, language: row.original_language, building: row.location_building, area: row.location_area || "", image }); }
-  catch (error) { const message = error instanceof Error ? error.message.slice(0, 500) : "Gemini analysis failed."; analysisError = analysisError ? `${analysisError}; ${message}` : message; }
+  catch (error) { console.error("Gemini report analysis failed", error); const message = "Bilingual analysis could not be completed. An administrator can retry."; analysisError = analysisError ? `${analysisError} ${message}` : message; }
   try {
     embeddingValues = await embedReport(row.original_text, row.location_building, row.location_area || "");
     await saveEmbedding(admin, reportId, embeddingValues);
   } catch (error) {
-    const message = error instanceof Error ? error.message.slice(0, 500) : "Embedding generation failed.";
+    console.error("Gemini report embedding failed", error);
+    const message = "Cross-language matching could not be completed. An administrator can retry.";
     analysisError = analysisError ? `${analysisError}; ${message}` : message;
   }
   const updates: Record<string, unknown> = {

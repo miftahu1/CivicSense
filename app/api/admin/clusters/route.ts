@@ -7,8 +7,8 @@ export async function GET() {
   try {
     const { admin } = await requireAdmin();
     const [{ data: clusters, error }, { data: reports, error: reportsError }] = await Promise.all([
-      admin.from("issue_clusters").select("*").order("created_at", { ascending: false }),
-      admin.from("reports").select("id,cluster_id").not("cluster_id", "is", null),
+      admin.from("issue_clusters").select("*").eq("is_synthetic", false).order("created_at", { ascending: false }),
+      admin.from("reports").select("id,cluster_id").eq("is_synthetic", false).not("cluster_id", "is", null),
     ]);
     if (error) throw error;
     if (reportsError) throw reportsError;
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message || "Invalid cluster details." }, { status: 400 });
     const ids = [...new Set(parsed.data.reportIds)];
     if (ids.length < 2) return Response.json({ error: "Select at least two separate reports." }, { status: 400 });
-    const { data: reports, error: reportError } = await admin.from("reports").select("id,cluster_id,category,location_building,status").in("id", ids);
+    const { data: reports, error: reportError } = await admin.from("reports").select("id,cluster_id,category,location_building,status").eq("is_synthetic", false).in("id", ids);
     if (reportError) throw reportError;
     if (!reports || reports.length !== ids.length) return Response.json({ error: "One or more reports could not be found." }, { status: 404 });
     if (reports.some((report) => report.cluster_id)) return Response.json({ error: "Separate reports from their current cluster before grouping them again." }, { status: 409 });
