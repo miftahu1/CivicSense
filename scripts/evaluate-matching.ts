@@ -1,65 +1,96 @@
+/* eslint-disable no-console */
+import { GoogleGenerativeAI, TaskType } from "@google/generative-ai";
+import { z } from "zod";
+import "dotenv/config";
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { matchingCases, expectedMatches, expectedNonMatches } from "../test-data/assamese-matching-cases";
-
-const key = process.env.GEMINI_API_KEY;
-if (!key) throw new Error("Set GEMINI_API_KEY before running the cross-language evaluation.");
-const genAI = new GoogleGenerativeAI(key);
 const model = process.env.GEMINI_EMBEDDING_MODEL || "text-embedding-004";
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
-// Create a lookup map for easy access to text by ID
-const casesById = new Map(matchingCases.map(c => [c.id, c.text]));
-
-async function embed(text: string): Promise<number[]> {
+// A basic embedding function using the Google Generative AI SDK
+async function embed(text: string | null | undefined): Promise<number[]> {
   if (!text) {
     throw new Error("Attempted to embed an empty or undefined text.");
   }
   const result = await genAI.getGenerativeModel({ model }).embedContent({
-    content: { parts: [{ text }] },
-    taskType: "SEMANTIC_SIMILARITY",
+    content: { role: "user", parts: [{ text }] },
+    taskType: TaskType.SEMANTIC_SIMILARITY,
   });
   return result.embedding.values;
 }
 
-function cosineSimilarity(vecA: number[], vecB: number[]) {
-  const dotProduct = vecA.reduce((acc, val, i) => acc + val * vecB[i], 0);
-  const magA = Math.sqrt(vecA.reduce((acc, val) => acc + val * val, 0));
-  const magB = Math.sqrt(vecB.reduce((acc, val) => acc + val * val, 0));
-  return dotProduct / (magA * magB);
+// The main schema for the evaluation dataset
+const schema = z.object({
+  "distractor documents": z.array(z.string()),
+  "relevant documents": z.array(z.string()),
+  "retrieval query": z.string(),
+});
+
+// Function to calculate the dot product of two vectors
+function dotProduct(vecA: number[], vecB: number[]): number {
+  let product = 0;
+  for (let i = 0; i < vecA.length; i++) {
+    product += vecA[i] * vecB[i];
+  }
+  return product;
 }
 
-async function runEvaluation() {
-  console.log(`Running evaluation with embedding model: ${model}\n`);
+async function main() {
+  // Parse the dataset from the JSON file
+  const dataset = schema.parse(require("./evaluate-matching-dataset.json"));
 
-  console.log("--- EXPECTED MATCHES ---");
-  for (const [id1, id2] of expectedMatches) {
-    const text1 = casesById.get(id1);
-    const text2 = casesById.get(id2);
+  // Embed the retrieval query
+  const queryEmbedding = await embed(dataset["retrieval query"]);
 
-    if (!text1 || !text2) {
-        console.error(`Could not find text for IDs: ${id1}, ${id2}`);
-        continue;
-    }
+  // Embed all distractor documents and calculate their similarity to the query
+  const distractorSimilarities = await Promise.all(
+    dataset["distractor documents"].map(async (doc) => {
+      const docEmbedding = await embed(doc);
+      return dotProduct(queryEmbedding, docEmbedding);
+    }),
+  );
 
-    const [embedding1, embedding2] = await Promise.all([embed(text1), embed(text2)]);
-    const similarity = cosineSimilarity(embedding1, embedding2);
-    console.log(`[${id1} vs ${id2}] Similarity: ${similarity.toFixed(4)}`);
-  }
+  // Embed all relevant documents and calculate their similarity to the query
+  const relevantSimilarities = await Promise.all(
+    dataset["relevant documents"].map(async (doc) => {
+      const docEmbedding = await embed(doc);
+      return dotProduct(queryEmbedding, docEmbedding);
+    }),
+  );
 
-  console.log("\n--- EXPECTED NON-MATCHES ---");
-  for (const [id1, id2] of expectedNonMatches) {
-    const text1 = casesById.get(id1);
-    const text2 = casesById.get(id2);
+  // -- Analysis --
 
-    if (!text1 || !text2) {
-        console.error(`Could not find text for IDs: ${id1}, ${id2}`);
-        continue;
-    }
-    
-    const [embedding1, embedding2] = await Promise.all([embed(text1), embed(text2)]);
-    const similarity = cosineSimilarity(embedding1, embedding2);
-    console.log(`[${id1} vs ${id2}] Similarity: ${similarity.toFixed(4)}`);
-  }
+  // Find the minimum similarity score among the relevant documents
+  const minRelevantSimilarity = Math.min(...relevantSimilarities);
+
+  // Count how many distractor documents have a higher similarity score than the minimum relevant one
+  const falsePositives = distractorSimilarities.filter((sim) => sim > minRelevantSimilarity).length;
+
+  // Find the maximum similarity score among the distractor documents
+  const maxDistractorSimilarity = Math.max(...distractorSimilarities);
+
+  // Count how many relevant documents have a lower similarity score than the maximum distractor one
+  const falseNegatives = relevantSimilarities.filter((sim) => sim < maxDistractorSimilarity).length;
+
+  console.log("--- Matching Evaluation Results ---");
+  console.log(`- Model: ${model}`);
+  console.log("- Total Documents:", dataset["distractor documents"].length + dataset["relevant documents"].length);
+  console.log("- Retrieval Query:", dataset["retrieval query"]);
+  console.log("\n--- Similarity Scores ---");
+  console.log("- Average Relevant Similarity:", relevantSimilarities.reduce((a, b) => a + b, 0) / relevantSimilarities.length);
+  console.log("- Average Distractor Similarity:", distractorSimilarities.reduce((a, b) => a + b, 0) / distractorSimilarities.length);
+  console.log("- Min Relevant Similarity:", minRelevantSimilarity);
+  console.log("- Max Distractor Similarity:", maxDistractorSimilarity);
+  console.log("\n--- Error Analysis ---");
+  console.log(
+    `- False Positives (distractors more similar than the least relevant doc): ${falsePositives} / ${dataset["distractor documents"].length}`,
+  );
+  console.log(
+    `- False Negatives (relevant docs less similar than the most similar distractor): ${falseNegatives} / ${dataset["relevant documents"].length}`,
+  );
+  console.log("-------------------------------------");
 }
 
-runEvaluation().catch(console.error);
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

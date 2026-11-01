@@ -151,6 +151,7 @@ export function ReportDetail({
     }
   }
   async function handleDelete() {
+    if (!report) return;
     if (!window.confirm(tr(locale, 'Are you sure you want to permanently delete this report?', 'আপুনি সঁচাকৈ এই প্ৰতিবেদনটো স্থায়ীভাৱে মচি পেলাব বিচাৰে নেকি?'))) return;
     setDeleting(true);
     try {
