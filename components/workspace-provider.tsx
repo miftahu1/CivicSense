@@ -33,6 +33,7 @@ type WorkspaceContextValue = {
   signOut: () => Promise<void>;
   submitReport: (input: SubmitReportInput) => Promise<Report>;
   updateReport: (id: string, update: Partial<Pick<Report, "status" | "category" | "confirmedPriority" | "assignedTo" | "assignedDepartment">>, message?: string) => Promise<void>;
+  deleteReport: (id: string) => Promise<void>;
   createCluster: (title: string, ids: string[]) => Promise<void>;
   updateCluster: (id: string, update: Partial<Pick<IssueCluster, "title" | "status" | "assignedTo">>, separateReportId?: string, resolutionMessage?: string) => Promise<void>;
   refresh: () => Promise<void>;
@@ -240,6 +241,14 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [user.role, refresh]);
 
+  const deleteReport = useCallback(async (id: string) => {
+    const supabase = createSupabaseBrowserClient();
+    if (!supabase) throw new Error("Supabase is not configured.");
+    const { error } = await supabase.rpc("delete_report", { report_id: id });
+    if (error) throw error;
+    setReports((current) => current.filter((report) => report.id !== id));
+  }, []);
+
   const createCluster = useCallback(async (title: string, ids: string[]) => {
     if (ids.length < 2) throw new Error("Choose at least two reports to create an issue cluster.");
     if (user.role !== "admin") throw new Error("Administrator access is required to create a cluster.");
@@ -255,7 +264,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [user.role, refresh]);
 
-  const value = useMemo(() => ({ user, isAuthenticated, authReady, selectedReportId, openReport, closeReport, locale, setLocale, activateSession, isDemo, reports, clusters, signOut, submitReport, updateReport, createCluster, updateCluster, refresh }), [user, isAuthenticated, authReady, selectedReportId, openReport, closeReport, locale, setLocale, activateSession, isDemo, reports, clusters, signOut, submitReport, updateReport, createCluster, updateCluster, refresh]);
+  const value = useMemo(() => ({ user, isAuthenticated, authReady, selectedReportId, openReport, closeReport, locale, setLocale, activateSession, isDemo, reports, clusters, signOut, submitReport, updateReport, deleteReport, createCluster, updateCluster, refresh }), [user, isAuthenticated, authReady, selectedReportId, openReport, closeReport, locale, setLocale, activateSession, isDemo, reports, clusters, signOut, submitReport, updateReport, deleteReport, createCluster, updateCluster, refresh]);
   return <WorkspaceContext.Provider value={value}>{ready ? children : null}</WorkspaceContext.Provider>;
 }
 

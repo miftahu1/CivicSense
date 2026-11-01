@@ -1,15 +1,7 @@
 export const categories = [
-  "Water supply / plumbing",
-  "Electrical",
-  "Internet / network",
-  "Sanitation / waste",
-  "Classroom infrastructure",
-  "Furniture",
-  "Hostel facilities",
-  "Library facilities",
-  "Canteen",
-  "Medical facilities",
-  "Other",
+    "Infrastructure", "Utilities", "Safety and Security", "Transportation", 
+    "Environmental", "Administrative", "Student Life", "Faculty Support", 
+    "Events and Activities", "Technology and IT", "Health and Wellness", "Other"
 ] as const;
 
 export const priorities = ["Low", "Medium", "High", "Urgent"] as const;

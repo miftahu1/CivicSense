@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { categories, priorities, statuses } from "@/lib/types";
+import { priorities, statuses } from "@/lib/types";
+
+const categories = [
+    "Infrastructure", "Utilities", "Safety and Security", "Transportation", 
+    "Environmental", "Administrative", "Student Life", "Faculty Support", 
+    "Events and Activities", "Technology and IT", "Health and Wellness", "Other"
+] as const;
 
 export const reportAnalysisSchema = z.object({
   detectedLanguage: z.enum(["English", "Assamese", "Romanised Assamese", "Mixed"]),
@@ -11,7 +17,7 @@ export const reportAnalysisSchema = z.object({
   summaryEn: z.string().trim().min(3).max(500),
   summaryAs: z.string().trim().min(3).max(500),
   department: z.string().min(2).max(100),
-  imageDescription: z.string().max(500),
+  imageDescription: z.string().max(500).optional(),
   confidence: z.number().min(0).max(1),
   sensitive: z.boolean(),
 });

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { analyzeReport, embedReport } from "@/lib/ai";
+import { analyzeImage, analyzeReport, embedReport } from "@/lib/ai";
 import { loadReports, mapReport } from "@/lib/db-mappers";
 import type { Language, Report, SimilarReport } from "@/lib/types";
 
@@ -69,22 +69,37 @@ export async function buildSimilarReports(admin: SupabaseClient, values: Array<{
   });
 }
 
+export async function processReportImage(admin: SupabaseClient, reportId: string) {
+    const { data: attachment } = await admin.from("attachments").select("storage_path,mime_type").eq("report_id", reportId).maybeSingle();
+    if (!attachment) return;
+
+    try {
+        await admin.from("reports").update({ image_analysis_status: "in_progress" }).eq("id", reportId);
+        const { data: downloaded, error } = await admin.storage.from("report-attachments").download(attachment.storage_path);
+        if (error) throw error;
+
+        const image = { mimeType: attachment.mime_type, bytes: Buffer.from(await downloaded.arrayBuffer()) };
+        const description = await analyzeImage(image);
+
+        await admin.from("attachments").update({ image_caption: description }).eq("report_id", reportId);
+        await admin.from("reports").update({ image_analysis_status: "complete" }).eq("id", reportId);
+    } catch (error) {
+        console.error("Image analysis failed", { reportId, error });
+        await admin.from("reports").update({ image_analysis_status: "failed" }).eq("id", reportId);
+    }
+}
+
 export async function processSavedReport(admin: SupabaseClient, reportId: string, isAdmin = true) {
   const row = await getReportRow(admin, reportId);
   if (!row) throw new Error("Report not found.");
-  let image: { mimeType: string; bytes: Buffer } | undefined;
+  
   let analysisError: string | null = null;
-  const { data: attachment } = await admin.from("attachments").select("storage_path,mime_type,image_caption").eq("report_id", reportId).maybeSingle();
-  if (attachment) {
-    const { data: downloaded, error } = await admin.storage.from("report-attachments").download(attachment.storage_path);
-    if (error) { console.error("Report attachment could not be downloaded", error); analysisError = "The attached photo could not be read; the original text will still be analyzed."; }
-    else image = { mimeType: attachment.mime_type, bytes: Buffer.from(await downloaded.arrayBuffer()) };
-  }
+  
   let analysis: Awaited<ReturnType<typeof analyzeReport>> | null = null;
   let embeddingValues: number[] | null = null;
   const aiStartedAt = Date.now();
   const [analysisResult, embeddingResult] = await Promise.allSettled([
-    analyzeReport({ text: row.original_text, language: row.original_language, building: row.location_building, area: row.location_area || "", image }),
+    analyzeReport({ text: row.original_text, language: row.original_language, building: row.location_building, area: row.location_area || "" }),
     embedReport(row.original_text, row.location_building, row.location_area || ""),
   ]);
   console.info("Report AI calls finished", { reportId, durationMs: Date.now() - aiStartedAt, analysis: analysisResult.status, embedding: embeddingResult.status });
@@ -133,10 +148,7 @@ export async function processSavedReport(admin: SupabaseClient, reportId: string
   });
   const { error: updateError } = await admin.from("reports").update(updates).eq("id", reportId);
   if (updateError) throw updateError;
-  if (analysis && attachment) {
-    const { error: captionError } = await admin.from("attachments").update({ image_caption: analysis.imageDescription || null }).eq("report_id", reportId);
-    if (captionError) console.error("Attachment caption update failed", captionError.message);
-  }
+  
   const { data: updated } = await admin.from("reports").select("*").eq("id", reportId).single();
   const report = updated ? (await loadReports(admin, [updated]))[0] : null;
   let matches: SimilarReport[] = [];

@@ -1,17 +1,22 @@
-import { after } from "next/server";
+import { after, NextRequest } from "next/server";
 import { reportInputSchema } from "@/lib/schemas";
 import { authErrorResponse, requireUser } from "@/lib/supabase/server";
 import { loadReports, mapReport } from "@/lib/db-mappers";
-import { appendEvent, imageContentMatches, imageExtension, imageTypeAllowed, processSavedReport } from "@/lib/report-service";
+import { appendEvent, imageContentMatches, imageExtension, imageTypeAllowed, processSavedReport, processReportImage } from "@/lib/report-service";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { admin, profile } = await requireUser();
-    let query = admin.from("reports").select("*").eq("is_synthetic", false).order("created_at", { ascending: false }).limit(500);
+    const { searchParams } = request.nextUrl;
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = parseInt(searchParams.get("pageSize") || "50");
+    const offset = (page - 1) * pageSize;
+
+    let query = admin.from("reports").select("*", { count: "exact" }).eq("is_synthetic", false).order("created_at", { ascending: false }).range(offset, offset + pageSize - 1);
     if (profile.role !== "admin") query = query.eq("reporter_id", profile.id);
-    const { data, error } = await query;
+    const { data, error, count } = await query;
     if (error) throw error;
-    return Response.json({ reports: await loadReports(admin, data || []) }, { headers: { "Cache-Control": "private, no-store" } });
+    return Response.json({ reports: await loadReports(admin, data || []), count: count || 0 }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { return authErrorResponse(error); }
 }
 
@@ -35,7 +40,7 @@ export async function POST(request: Request) {
     const { data: row, error: insertError } = await admin.from("reports").insert({
       reporter_id: user.id, original_text: parsed.data.originalText, original_language: parsed.data.language,
       category: parsed.data.category || "Other", location_building: parsed.data.building, location_area: parsed.data.area,
-      status: "Under review", analysis_status: "pending",
+      status: "Under review", analysis_status: "pending", image_analysis_status: fileBytes ? 'pending' : 'complete',
     }).select("*").single();
     if (insertError || !row) { console.error("Report insert failed", insertError); return Response.json({ error: "The report could not be saved. Please try again." }, { status: 500 }); }
     console.info("Report row saved", { reportId: row.id, durationMs: Date.now() - requestStartedAt });
@@ -58,24 +63,14 @@ export async function POST(request: Request) {
     }
 
     if (attachmentError) await admin.from("reports").update({ analysis_error: attachmentError }).eq("id", row.id);
-    const report = mapReport(row);
-    after(async () => {
-      const startedAt = Date.now();
-      console.info("Background report analysis started", { reportId: row.id });
-      try {
-        await processSavedReport(admin, row.id, false);
-        if (attachmentError) await admin.from("reports").update({ analysis_error: attachmentError }).eq("id", row.id);
-        console.info("Background report analysis completed", { reportId: row.id, durationMs: Date.now() - startedAt });
-      } catch (analysisError) {
-        console.error("Background saved report processing failed", { reportId: row.id, durationMs: Date.now() - startedAt, error: analysisError });
-        try {
-          await admin.from("reports").update({ analysis_status: "failed", analysis_error: "Report analysis stopped unexpectedly. An administrator can retry." }).eq("id", row.id);
-        } catch (persistError) {
-          console.error("Failed to persist background analysis error", { reportId: row.id, error: persistError });
-        }
-      }
-    });
+
+    if (hasImage) {
+      after(() => processReportImage(admin, row.id));
+    }
+
+    const { report, matches, analysisError } = await processSavedReport(admin, row.id, false);
+
     console.info("Report submission response ready", { reportId: row.id, durationMs: Date.now() - requestStartedAt });
-    return Response.json({ report, matches: [], analysisError: attachmentError, attachmentSaved: !file || file instanceof File && file.size === 0 || hasImage }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
+    return Response.json({ report, matches, analysisError, attachmentSaved: !file || file instanceof File && file.size === 0 || hasImage }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { return authErrorResponse(error); }
 }

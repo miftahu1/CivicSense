@@ -2,19 +2,25 @@ import { clusterInputSchema } from "@/lib/schemas";
 import { authErrorResponse, requireAdmin } from "@/lib/supabase/server";
 import { appendEvent } from "@/lib/report-service";
 import { mapCluster } from "@/lib/db-mappers";
+import { NextRequest } from "next/server";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { admin } = await requireAdmin();
-    const [{ data: clusters, error }, { data: reports, error: reportsError }] = await Promise.all([
-      admin.from("issue_clusters").select("*").eq("is_synthetic", false).order("created_at", { ascending: false }),
+    const { searchParams } = request.nextUrl;
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = parseInt(searchParams.get("pageSize") || "50");
+    const offset = (page - 1) * pageSize;
+
+    const [{ data: clusters, error, count }, { data: reports, error: reportsError }] = await Promise.all([
+      admin.from("issue_clusters").select("*", { count: "exact" }).eq("is_synthetic", false).order("created_at", { ascending: false }).range(offset, offset + pageSize - 1),
       admin.from("reports").select("id,cluster_id").eq("is_synthetic", false).not("cluster_id", "is", null),
     ]);
     if (error) throw error;
     if (reportsError) throw reportsError;
     const idsByCluster = new Map<string, string[]>();
     (reports || []).forEach((report) => { const list = idsByCluster.get(report.cluster_id) || []; list.push(report.id); idsByCluster.set(report.cluster_id, list); });
-    return Response.json({ clusters: (clusters || []).map((cluster) => mapCluster(cluster, idsByCluster.get(cluster.id) || [])) }, { headers: { "Cache-Control": "private, no-store" } });
+    return Response.json({ clusters: (clusters || []).map((cluster) => mapCluster(cluster, idsByCluster.get(cluster.id) || [])), count: count || 0 }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { return authErrorResponse(error); }
 }
 

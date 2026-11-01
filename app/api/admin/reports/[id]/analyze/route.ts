@@ -7,7 +7,12 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     const { admin } = await requireAdmin();
     const row = await getReportRow(admin, id);
     if (!row) return Response.json({ error: "Report not found." }, { status: 404 });
-    const result = await processSavedReport(admin, id, true);
-    return Response.json({ report: result.report, matches: result.matches, analysisError: result.analysisError }, { status: result.report?.analysisStatus === "complete" ? 200 : 422 });
+
+    // Fire and forget the report processing. Don't await it.
+    // The client will get an immediate response.
+    processSavedReport(admin, id, true).catch(console.error);
+
+    // Return a 202 Accepted response to indicate the request has been accepted for processing.
+    return Response.json({ message: "Analysis has been queued." }, { status: 202 });
   } catch (error) { return authErrorResponse(error); }
 }

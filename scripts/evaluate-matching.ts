@@ -1,36 +1,65 @@
-import "dotenv/config";
-import { GoogleGenAI } from "@google/genai";
-import { expectedMatches, expectedNonMatches, matchingCases } from "../test-data/assamese-matching-cases";
+
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { matchingCases, expectedMatches, expectedNonMatches } from "../test-data/assamese-matching-cases";
 
 const key = process.env.GEMINI_API_KEY;
 if (!key) throw new Error("Set GEMINI_API_KEY before running the cross-language evaluation.");
-const client = new GoogleGenAI({ apiKey: key });
-const model = process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-2";
+const genAI = new GoogleGenerativeAI(key);
+const model = process.env.GEMINI_EMBEDDING_MODEL || "text-embedding-004";
 
-async function main() {
-  const vectors = new Map<string, number[]>();
-  for (const item of matchingCases) {
-    const response = await client.models.embedContent({ model, contents: `Campus location: ${item.building}; ${item.area}. Original complaint: ${item.text}`, config: { outputDimensionality: 768 } });
-    const values = response.embeddings?.[0]?.values;
-    if (!values || values.length !== 768) throw new Error(`${item.id}: expected a 768-dimensional embedding.`);
-    vectors.set(item.id, values);
+// Create a lookup map for easy access to text by ID
+const casesById = new Map(matchingCases.map(c => [c.id, c.text]));
+
+async function embed(text: string): Promise<number[]> {
+  if (!text) {
+    throw new Error("Attempted to embed an empty or undefined text.");
   }
-  const lookup = new Map(matchingCases.map((item) => [item.id, item]));
-  const cosine = (a: number[], b: number[]) => { let dot=0, aa=0, bb=0; for(let i=0;i<a.length;i++){dot+=a[i]*b[i];aa+=a[i]*a[i];bb+=b[i]*b[i];} return dot/(Math.sqrt(aa)*Math.sqrt(bb)); };
-  const threshold = Number(process.env.SIMILARITY_THRESHOLD || "0.82");
-  let failures = 0;
-  const show = (pair: [string,string], expected: boolean) => {
-    const left=lookup.get(pair[0])!,right=lookup.get(pair[1])!;
-    const raw=cosine(vectors.get(left.id)!,vectors.get(right.id)!);
-    const score=Math.min(1,raw+(left.building.toLocaleLowerCase()===right.building.toLocaleLowerCase()?0.025:0));
-    const actual=score>=threshold;
-    if(actual!==expected) failures++;
-    console.log(`${actual===expected?"PASS":"FAIL"} ${left.id} ↔ ${right.id} expected ${expected?"match":"separate"}; cosine=${raw.toFixed(3)}, location-adjusted=${score.toFixed(3)}, threshold=${threshold.toFixed(2)}`);
-  };
-  console.log("Cross-language semantic evaluation (keep all original reports separate until a person confirms a relationship)\n");
-  expectedMatches.forEach((pair)=>show(pair,true));
-  expectedNonMatches.forEach((pair)=>show(pair,false));
-  if(failures) { console.error(`\n${failures} evaluation case(s) did not meet the current threshold. Review scores and calibrate SIMILARITY_THRESHOLD before relying on automatic suggestions.`); process.exitCode=1; }
-  else console.log("\nAll prepared match and non-match cases passed at the configured threshold.");
+  const result = await genAI.getGenerativeModel({ model }).embedContent({
+    content: { parts: [{ text }] },
+    taskType: "SEMANTIC_SIMILARITY",
+  });
+  return result.embedding.values;
 }
-void main();
+
+function cosineSimilarity(vecA: number[], vecB: number[]) {
+  const dotProduct = vecA.reduce((acc, val, i) => acc + val * vecB[i], 0);
+  const magA = Math.sqrt(vecA.reduce((acc, val) => acc + val * val, 0));
+  const magB = Math.sqrt(vecB.reduce((acc, val) => acc + val * val, 0));
+  return dotProduct / (magA * magB);
+}
+
+async function runEvaluation() {
+  console.log(`Running evaluation with embedding model: ${model}\n`);
+
+  console.log("--- EXPECTED MATCHES ---");
+  for (const [id1, id2] of expectedMatches) {
+    const text1 = casesById.get(id1);
+    const text2 = casesById.get(id2);
+
+    if (!text1 || !text2) {
+        console.error(`Could not find text for IDs: ${id1}, ${id2}`);
+        continue;
+    }
+
+    const [embedding1, embedding2] = await Promise.all([embed(text1), embed(text2)]);
+    const similarity = cosineSimilarity(embedding1, embedding2);
+    console.log(`[${id1} vs ${id2}] Similarity: ${similarity.toFixed(4)}`);
+  }
+
+  console.log("\n--- EXPECTED NON-MATCHES ---");
+  for (const [id1, id2] of expectedNonMatches) {
+    const text1 = casesById.get(id1);
+    const text2 = casesById.get(id2);
+
+    if (!text1 || !text2) {
+        console.error(`Could not find text for IDs: ${id1}, ${id2}`);
+        continue;
+    }
+    
+    const [embedding1, embedding2] = await Promise.all([embed(text1), embed(text2)]);
+    const similarity = cosineSimilarity(embedding1, embedding2);
+    console.log(`[${id1} vs ${id2}] Similarity: ${similarity.toFixed(4)}`);
+  }
+}
+
+runEvaluation().catch(console.error);

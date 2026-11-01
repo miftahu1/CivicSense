@@ -1,50 +1,59 @@
-import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
-import { reportAnalysisSchema } from "@/lib/schemas";
-import type { Language } from "@/lib/types";
+import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
+import { z } from "zod";
+import { reportAnalysisSchema } from "./schemas";
+import type { Language } from "./types";
 
-const outputSchema = {
-  type: Type.OBJECT,
-  properties: {
-    detectedLanguage: { type: Type.STRING, enum: ["English", "Assamese", "Romanised Assamese", "Mixed"] },
-    category: { type: Type.STRING, enum: ["Water supply / plumbing", "Electrical", "Internet / network", "Sanitation / waste", "Classroom infrastructure", "Furniture", "Hostel facilities", "Library facilities", "Canteen", "Medical facilities", "Other"] },
-    priority: { type: Type.STRING, enum: ["Low", "Medium", "High", "Urgent"] },
-    priorityExplanation: { type: Type.STRING },
-    titleEn: { type: Type.STRING }, titleAs: { type: Type.STRING },
-    summaryEn: { type: Type.STRING }, summaryAs: { type: Type.STRING },
-    department: { type: Type.STRING }, imageDescription: { type: Type.STRING },
-    confidence: { type: Type.NUMBER }, sensitive: { type: Type.BOOLEAN },
-  },
-  required: ["detectedLanguage", "category", "priority", "priorityExplanation", "titleEn", "titleAs", "summaryEn", "summaryAs", "department", "imageDescription", "confidence", "sensitive"],
-};
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const textModel = genAI.getGenerativeModel({ model: "gemini-3.8-flash" });
+const visionModel = genAI.getGenerativeModel({ model: "gemini-3.8-flash" });
+const embeddingModel = genAI.getGenerativeModel({ model: process.env.GEMINI_EMBEDDING_MODEL || "text-embedding-004" });
 
-function getClient() {
-  if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
-  // Bound provider waits: the SDK otherwise retries timed-out requests and can
-  // keep a report task open for several minutes.
-  return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY, httpOptions: { timeout: 30_000, retryOptions: { attempts: 2 } } });
+const safetySettings = [
+  { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+];
+
+const analysisSystemPrompt = `You are a civic issue tracking assistant for a university in Assam, India. Your role is to analyze student and staff reports, which may be in English, Assamese, or a mix of both (like "Romanised Assamese"). Your analysis must be concise, neutral, and directly relevant to the report. You will provide bilingual titles and summaries, and categorize the issue.\n\nFollow these rules for your JSON output:\n- **detectedLanguage**: Accurately detect the primary language of the original text. Valid values are "English", "Assamese", "Romanised Assamese", or "Mixed".\n- **titleEn/titleAs**: Create short, descriptive titles in English and Assamese, under 80 characters each.\n- **summaryEn/summaryAs**: Write concise, neutral summaries (2-3 sentences) in English and Assamese. If the report is unclear, summarize the available information.\n- **category**: Choose the most fitting category from this list: "Infrastructure", "Utilities", "Safety and Security", "Transportation", "Environmental", "Administrative", "Student Life", "Faculty Support", "Events and Activities", "Technology and IT", "Health and Wellness", "Other".\n- **priority**: Assign a priority: "Low", "Medium", "High", or "Urgent".\n- **priorityExplanation**: Briefly explain your priority choice in one sentence.\n- **department**: Suggest the university department best equipped to handle the issue. Use a generic name if unsure (e.g., "Maintenance Department", "IT Services").\n- **sensitive**: Flag as true if the report contains sensitive personal, political, or security information; otherwise, false.\n- **confidence**: Rate your analysis confidence from 0.0 to 1.0.\n- **imageDescription**: You will not be provided an image. Do not include this field.`;
+
+const imageAnalysisSystemPrompt = `You are a factual image description assistant. Your role is to describe the contents of an image in a single, neutral sentence. Do not interpret, editorialize, or add any information that is not visually present in the image.`;
+
+export async function analyzeImage(image: { mimeType: string, bytes: Buffer }): Promise<string> {
+  try {
+    const result = await visionModel.generateContent([
+      { text: imageAnalysisSystemPrompt },
+      { inlineData: { mimeType: image.mimeType, data: image.bytes.toString("base64") } },
+    ]);
+    return result.response.text();
+  } catch (error) {
+    console.error("Gemini image analysis failed", { error });
+    throw error;
+  }
 }
 
-export async function analyzeReport(input: { text: string; language: Language; building: string; area: string; image?: { mimeType: string; bytes: Buffer } }) {
-  const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [{
-    text: `You triage campus facilities reports for a bilingual university. Read the original exactly as written; it may be native Assamese, Romanised Assamese, English, or mixed. Do not translate away the original meaning. Do not infer facts, causes, injury, or urgency that are not stated or visible. Make the Assamese summary natural Assamese in Assamese script, even if the input is Romanised. Use the image only for visible evidence. Return concise structured JSON matching the schema.\n\nUser indicated language: ${input.language}\nBuilding: ${input.building}\nArea: ${input.area || "Not provided"}\nOriginal report: ${input.text}`,
-  }];
-  if (input.image) parts.push({ inlineData: { mimeType: input.image.mimeType, data: input.image.bytes.toString("base64") } });
-  const result = await getClient().models.generateContent({
-    model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
-    contents: [{ role: "user", parts }],
-    config: { responseMimeType: "application/json", responseSchema: outputSchema, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } },
-  });
-  const parsed = reportAnalysisSchema.parse(JSON.parse(result.text || ""));
-  return parsed;
+export async function analyzeReport(input: { text: string; language: Language; building: string; area: string; }) {
+  const parts = [
+    { text: analysisSystemPrompt },
+    { text: `Analyze the following report. It was submitted in ${input.language} from the ${input.building} campus building${input.area ? ` (area: ${input.area})` : ""}.\n\n${input.text}` },
+  ];
+
+  const result = await textModel.generateContent(parts, { responseMimeType: "application/json", safetySettings });
+  const text = result.response.text();
+  const cleanedText = text.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+  const parsed = reportAnalysisSchema.safeParse(JSON.parse(cleanedText));
+  if (!parsed.success) {
+    console.error("Gemini response validation failed", { error: parsed.error, json: cleanedText });
+    throw parsed.error; // ZodError
+  }
+
+  return parsed.data;
 }
 
-export async function embedReport(text: string, building: string, area: string) {
-  const result = await getClient().models.embedContent({
-    model: process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-2",
-    contents: `Campus location: ${building}; ${area || "area unspecified"}. Original complaint: ${text}`,
-    config: { outputDimensionality: 768 },
+export async function embedReport(text: string, building: string, area: string): Promise<number[]> {
+  const result = await embeddingModel.embedContent({
+    content: { parts: [{ text: `Location: ${building}, ${area}\n\n${text}` }] },
+    taskType: "SEMANTIC_SIMILARITY",
   });
-  const values = result.embeddings?.[0]?.values;
-  if (!values || values.length !== 768) throw new Error("Gemini returned an embedding with an unexpected dimension.");
-  return values;
+  return result.embedding.values;
 }
