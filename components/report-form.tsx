@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -9,7 +9,7 @@ import { useWorkspace } from "@/components/workspace-provider";
 import { categories, type Language, type Report } from "@/lib/types";
 import { categoryLabel, tr } from "@/lib/i18n";
 
-const buildings = ["Moirabari Hostel", "Central Library", "New Arts Building", "Commerce Block", "West Canteen", "Administrative Building", "Health Centre", "Science Block", "Main Campus Grounds", "Other"];
+const buildings = ["Student Hostel", "Central Library", "Academic Building", "Commerce Building", "Dining Hall", "Administration Building", "Health Centre", "Science Building", "Campus Grounds", "Other"];
 
 export function ReportForm() {
   const router = useRouter();
@@ -20,11 +20,18 @@ export function ReportForm() {
   const [preview, setPreview] = useState("");
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [submitStage, setSubmitStage] = useState(0);
   const [error, setError] = useState("");
   const [text, setText] = useState("");
   const [building, setBuilding] = useState("");
   const [area, setArea] = useState("");
   const [category, setCategory] = useState("");
+
+  useEffect(() => {
+    if (!busy) { setSubmitStage(0); return; }
+    const stageTimer = window.setInterval(() => setSubmitStage((stage) => Math.min(stage + 1, 3)), 3_500);
+    return () => window.clearInterval(stageTimer);
+  }, [busy]);
 
   function takeFile(file?: File) {
     if (!file) return;
@@ -45,7 +52,7 @@ export function ReportForm() {
     finally { setBusy(false); }
   }
 
-  return <><div className="page-heading"><div><div className="section-kicker">{tr(locale, "Campus services · New report", "কেম্পাছ সেৱা · নতুন প্ৰতিবেদন")}</div><h1>{tr(locale, "What needs attention?", "কিহৰ প্ৰতি মনোযোগ দিব লাগে?")}</h1><p>{tr(locale, "Share what you noticed. A location and a few details help the right team respond.", "আপুনি লক্ষ্য কৰা কথাখিনি জনাওক। স্থান আৰু কেইটামান বিৱৰণে সঠিক দলক সঁহাৰি দিবলৈ সহায় কৰে।")}</p></div></div><form onSubmit={onSubmit} className="form-layout" noValidate><div className="panel form-panel">
+  return <>{busy && <div className="submission-screen" role="status" aria-live="polite" aria-atomic="true"><div className="submission-card"><div className="submission-mark"><Sparkles size={24}/></div><div className="section-kicker">{tr(locale, "CivicSense is at work", "CivicSense-এ কাম কৰি আছে")}</div><h2>{[tr(locale,"Sending your report","আপোনাৰ প্ৰতিবেদন পঠিওৱা হৈছে"),tr(locale,"Saving it to your campus workspace","কেম্পাছ ৱৰ্কস্পেচত সংৰক্ষণ কৰা হৈছে"),tr(locale,"Securing any photo you attached","সংলগ্ন আলোকচিত্ৰ সুৰক্ষিত কৰা হৈছে"),tr(locale,"Finishing your submission","দাখিল সম্পূৰ্ণ কৰা হৈছে")][submitStage]}</h2><p>{tr(locale,"Your report and photo are being sent securely. We’ll open the saved report next; bilingual analysis will continue on its report page.","আপোনাৰ প্ৰতিবেদন আৰু আলোকচিত্ৰ সুৰক্ষিতভাৱে পঠিওৱা হৈছে। সংৰক্ষিত প্ৰতিবেদনটো পিছত খোলা হ’ব; দ্বিভাষিক বিশ্লেষণ প্ৰতিবেদনৰ পৃষ্ঠাত চলি থাকিব।")}</p><div className="submission-progress" aria-hidden="true"><i/></div><ol className="submission-steps">{[tr(locale,"Send","পঠিয়াওক"),tr(locale,"Save","সংৰক্ষণ"),tr(locale,"Photo","আলোকচিত্ৰ"),tr(locale,"Open","খোলক")].map((label,index)=><li key={label} className={index <= submitStage ? "active" : ""}><span>{index < submitStage ? "✓" : index + 1}</span>{label}</li>)}</ol><span className="submission-footnote"><RotateCcw size={13} className="spin-icon"/>{tr(locale,"This can take a short moment. Please keep this page open.","অলপ সময় লাগিব পাৰে। অনুগ্ৰহ কৰি এই পৃষ্ঠা খোলা ৰাখক।")}</span></div></div>}<div className="page-heading"><div><div className="section-kicker">{tr(locale, "Campus services · New report", "কেম্পাছ সেৱা · নতুন প্ৰতিবেদন")}</div><h1>{tr(locale, "What needs attention?", "কিহৰ প্ৰতি মনোযোগ দিব লাগে?")}</h1><p>{tr(locale, "Share what you noticed. A location and a few details help the right team respond.", "আপুনি লক্ষ্য কৰা কথাখিনি জনাওক। স্থান আৰু কেইটামান বিৱৰণে সঠিক দলক সঁহাৰি দিবলৈ সহায় কৰে।")}</p></div></div><form onSubmit={onSubmit} className="form-layout" noValidate><div className="panel form-panel">
     <div className="form-section-title"><span className="section-number">1</span><div><h2>{tr(locale, "Describe the issue", "সমস্যাটোৰ বিৱৰণ দিয়ক")}</h2><p>{tr(locale, "Use the language that feels clearest. Your original words are kept with your report.", "যি ভাষাত স্বচ্ছন্দ, সেই ভাষাতে লিখক। আপোনাৰ মূল কথাখিনি প্ৰতিবেদনৰ সৈতে সংৰক্ষিত থাকিব।")}</p></div></div>
     <div className="language-tabs" role="tablist" aria-label={tr(locale, "Report language","প্ৰতিবেদনৰ ভাষা")}>{(["English","Assamese","Romanised Assamese","Mixed"] as Language[]).map((item) => <button type="button" role="tab" aria-selected={language===item} className={language===item?"selected":""} key={item} onClick={() => setLanguage(item)}>{item === "Assamese" ? <span className="assamese" lang="as">অসমীয়া</span> : item === "Romanised Assamese" ? tr(locale,"Romanised Assamese","ৰোমানাইজড অসমীয়া") : item === "Mixed" ? tr(locale,"Mixed","মিশ্ৰ") : item}</button>)}</div>
     <div className="field"><label htmlFor="report-text">{tr(locale, "What happened, and where?", "কি ঘটিল, আৰু ক’ত?")}</label><textarea id="report-text" className={language === "Assamese" ? "assamese" : ""} lang={language === "Assamese" ? "as" : "en"} value={text} onChange={(event) => setText(event.target.value)} maxLength={5000} placeholder={language === "Assamese" ? "সমস্যাটোৰ বিৱৰণ দিয়ক…" : language === "Romanised Assamese" ? "E.g. Hostel r third floor ot pani nai…" : language === "Mixed" ? tr(locale,"Describe it in Assamese, English, or both…","অসমীয়া, ইংৰাজী বা দুয়োটা ভাষাতে সমস্যাটো লিখক…") : tr(locale,"E.g. Water has not reached the third floor of the hostel since this morning…","যেনে: আজি পুৱাৰ পৰা হোষ্টেলৰ তৃতীয় মহলাত পানী নাই…")} required/></div><div className="char-count">{text.length.toLocaleString(locale === "as" ? "as-IN" : "en-IN")} / 5,000</div>

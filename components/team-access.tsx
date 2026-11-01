@@ -9,7 +9,7 @@ import { formatDate } from "@/lib/format";
 import type { UserRole } from "@/lib/types";
 
 type TeamMember = { id: string; full_name: string; role: UserRole; department: string | null; created_at: string };
-const departments = ["Estate & Engineering Branch", "Electrical Wing", "Network & IT Centre", "Central Library Facilities", "Sanitation & Health Section", "Hostel Warden Office", "Medical Centre"];
+const departments = ["Facilities & Maintenance", "Electrical Services", "IT Services", "Library Services", "Sanitation & Waste", "Student Housing", "Health Services"];
 
 export function TeamAccess() {
   const { locale } = useWorkspace();

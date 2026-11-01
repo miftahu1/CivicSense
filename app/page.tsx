@@ -49,26 +49,31 @@ const examples: Record<ExampleKey, {
 };
 
 export default function LandingPage() {
-  const { locale } = useWorkspace();
+  const { locale, isAuthenticated, user } = useWorkspace();
   const [exampleKey, setExampleKey] = useState<ExampleKey>("as");
   const example = examples[exampleKey];
   const isAs = locale === "as";
+  const workspaceHref = isAuthenticated ? (user.role === "admin" ? "/admin" : user.role === "staff" ? "/staff" : "/app") : "/app";
+  const primaryCtaHref = isAuthenticated ? workspaceHref : "/app/new";
+  const primaryCtaLabel = isAuthenticated ? tr(locale, "Open workspace", "ৱৰ্কস্পেচ খোলক") : tr(locale, "Report an issue", "সমস্যা জনাওক");
+  const secondaryCtaHref = isAuthenticated ? workspaceHref : "/app";
+  const secondaryCtaLabel = isAuthenticated ? tr(locale, "Continue to workspace", "ৱর্কস্পেচলৈ আগবাঢ়ক") : tr(locale, "Explore the workspace", "ৱৰ্কস্পেচ চাওক");
 
   return <main className="landing" lang={locale}>
-    <nav className="landing-nav">
+    <div className="landing-top"><nav className="landing-nav">
       <Brand/>
       <div className="nav-links"><a href="#how-it-works">{tr(locale,"How it works","ই কেনেকৈ কাম কৰে")}</a><a href="#languages">{tr(locale,"Built for campus","কেম্পাছৰ বাবে নিৰ্মিত")}</a></div>
-      <div className="nav-actions"><LanguageToggle/><Link href="/login" className="button button-outline button-small">{tr(locale,"Sign in","ছাইন ইন")}</Link><Link href="/app" className="button button-primary button-small">{tr(locale,"Open workspace","ৱৰ্কস্পেচ খোলক")} <ArrowRight size={13}/></Link></div>
+      <div className="nav-actions"><LanguageToggle/>{!isAuthenticated && <Link href="/login" className="button button-outline button-small">{tr(locale,"Sign in","ছাইন ইন")}</Link>}<Link href={workspaceHref} className="button button-primary button-small">{tr(locale,"Open workspace","ৱৰ্কস্পেচ খোলক")} <ArrowRight size={13}/></Link></div>
     </nav>
     <section className="landing-hero">
-      <div><div className="eyebrow"><span className="eyebrow-mark"/>{isAs ? "ডিব্ৰুগড় বিশ্ববিদ্যালয় · কেম্পাছ সেৱা" : "Dibrugarh University · Campus services"}</div>
+      <div><div className="eyebrow"><span className="eyebrow-mark"/>{isAs ? "বিশ্ববিদ্যালয়ৰ কেম্পাছ সেৱা" : "University campus services"}</div>
         <h1 className={`hero-title ${isAs ? "assamese" : ""}`} lang={locale}>{isAs ? <>কেম্পাছৰ সমস্যা বুজি,<br/><em>সমাধান দৃশ্যমান</em> কৰক।</> : <>Campus problems<br/>understood. <em>Actions<br/>made visible.</em></>}</h1>
         <p className={`hero-copy ${isAs ? "assamese" : ""}`} lang={locale}>{isAs ? "অসমীয়া, ৰোমানাইজড অসমীয়া বা ইংৰাজীত কেম্পাছৰ সমস্যাৰ প্ৰতিবেদন দিয়ক। CivicSense-এ প্ৰতিবেদনসমূহ সংযোগ কৰে আৰু প্ৰতিটো পদক্ষেপ দৃশ্যমান কৰে।" : "Report a campus issue in Assamese, Romanised Assamese, or English. CivicSense connects related concerns and makes each step toward a response visible."}</p>
-        <div className="hero-actions"><Link href="/app/new" className="button button-terracotta">{tr(locale,"Report an issue","সমস্যা জনাওক")} <ArrowRight size={15}/></Link><Link href="/app" className="button button-outline">{tr(locale,"Explore the workspace","ৱৰ্কস্পেচ চাওক")} <ArrowDownRight size={14}/></Link></div>
+        <div className="hero-actions"><Link href={primaryCtaHref} className="button button-terracotta">{primaryCtaLabel} <ArrowRight size={15}/></Link><Link href={secondaryCtaHref} className="button button-outline">{secondaryCtaLabel} <ArrowDownRight size={14}/></Link></div>
         <div className="hero-footnote"><ShieldCheck size={15}/> {tr(locale,"A clearer line between a campus concern and campus action.","কেম্পাছৰ সমস্যা আৰু তাৰ সমাধানৰ মাজত স্পষ্ট সংযোগ।")}</div>
       </div>
-      <div className="hero-visual"><div className="hero-index">FIELD NOTES / 01</div><div className="visual-frame"><CampusIllustration/><div className="visual-stamp">{isAs ? <>শুনে<br/>বুজে<br/>সঁহাৰি দিয়ে</> : <>A campus<br/>that listens<br/>and responds</>}</div></div><div className="visual-card"><div className="visual-card-head"><span>{tr(locale,"Facilities · active","সা-সুবিধা · সক্ৰিয়")}</span><span className="live-dot"/></div><h3>{tr(locale,"Water on the third floor","তৃতীয় মহলাত পানী নাই")}</h3><p>{tr(locale,"Moirabari Hostel · Reported in Assamese","মৈৰাবাৰী হোষ্টেল · অসমীয়াত দাখিল")}</p></div></div>
-    </section>
+      <div className="hero-visual"><div className="hero-index">FIELD NOTES / 01</div><div className="visual-frame"><CampusIllustration/><div className="visual-stamp">{isAs ? <>শুনে<br/>বুজে<br/>সঁহাৰি দিয়ে</> : <>A campus<br/>that listens<br/>and responds</>}</div></div><div className="visual-card"><div className="visual-card-head"><span>{tr(locale,"Facilities · active","সা-সুবিধা · সক্ৰিয়")}</span><span className="live-dot"/></div><h3>{tr(locale,"Water on the third floor","তৃতীয় মহলাত পানী নাই")}</h3><p>{tr(locale,"Student Hostel · Reported in Assamese","ছাত্ৰাৱাস · অসমীয়াত দাখিল")}</p><ol className="ticket-rail" aria-label={tr(locale,"Progress of this issue","এই সমস্যাৰ অগ্ৰগতি")}><li>{tr(locale,"Reported","দাখিল")}</li><li>{tr(locale,"Matched","সংযোগ")}</li><li>{tr(locale,"Assigned","নিযুক্ত")}</li><li>{tr(locale,"Resolved","সমাধান")}</li></ol></div></div>
+    </section></div>
 
     <section className="semantic-showcase" aria-labelledby="semantic-title">
       <div className="semantic-heading">
@@ -81,7 +86,7 @@ export default function LandingPage() {
         <article className="semantic-source">
           <div className="semantic-card-head"><span><Globe2 size={13}/>{tr(locale,"Original report · source language","মূল প্ৰতিবেদন · উৎস ভাষা")}</span><b className={exampleKey==="as"?"assamese":""} lang={exampleKey==="as"?"as":"en"}>{example.source}</b></div>
           <blockquote className={exampleKey==="as"?"assamese":""} lang={exampleKey==="as"?"as":"en"}>“{example.text}”</blockquote>
-          <div className="semantic-source-foot"><span>{tr(locale,"Boys Hostel 3 · Third floor","বয়জ হোষ্টেল ৩ · তৃতীয় মহলা")}</span><Link href="/app/new">{tr(locale,"Try this in the report form","প্ৰতিবেদন প্ৰপত্ৰত চেষ্টা কৰক")} <ArrowRight size={11}/></Link></div>
+          <div className="semantic-source-foot"><span>{tr(locale,"Student Hostel · Third floor","ছাত্ৰাৱাস · তৃতীয় মহলা")}</span><Link href="/app/new">{tr(locale,"Try this in the report form","প্ৰতিবেদন প্ৰপত্ৰত চেষ্টা কৰক")} <ArrowRight size={11}/></Link></div>
         </article>
         <div className="semantic-connector" aria-hidden="true"><span><GitMerge size={15}/></span></div>
         <article className="semantic-result">
@@ -101,6 +106,6 @@ export default function LandingPage() {
     </section>
 
     <section className="process-strip" id="how-it-works"><div className="process-inner"><div className="process-title"><div><div className="eyebrow" style={{color:"#bdc7bf"}}><span className="eyebrow-mark"/>{tr(locale,"A more useful way to report","সমস্যা জনোৱাৰ এক সহজ উপায়")}</div><h2>{tr(locale,"From a sentence to a campus response.","এটা বাক্যৰ পৰা কেম্পাছৰ সঁহাৰিলৈ।")}</h2></div><p>{tr(locale,"Local language, location context, and related reports come together in one clear view for the people who can act.","স্থানীয় ভাষা, স্থানৰ তথ্য আৰু সম্পৰ্কিত প্ৰতিবেদন একেলগে আহে—যিসকলে পদক্ষেপ ল’ব পাৰে তেওঁলোকৰ বাবে।")}</p></div><div className="process-grid"><article className="process-step"><span className="step-no">01 / {tr(locale,"Tell us","জনাওক")}</span><h3>{tr(locale,"Say it in your words","নিজৰ ভাষাত কওক")}</h3><p>{tr(locale,"Write in Assamese, English, or Romanised Assamese. Add a photo and a campus location when you can.","অসমীয়া, ইংৰাজী বা ৰোমানাইজড অসমীয়াত লিখক। পাৰিলে আলোকচিত্ৰ আৰু কেম্পাছৰ স্থান যোগ কৰক।")}</p></article><article className="process-step"><span className="step-no">02 / {tr(locale,"Connect","সংযোগ")}</span><h3>{tr(locale,"See the shared picture","একেলগে সম্পৰ্কিত সমস্যাবোৰ চাওক")}</h3><p>{tr(locale,"AI prepares bilingual summaries and suggests when another report might describe the same campus issue.","এআই-এ দুয়োটা ভাষাত সাৰাংশ তৈয়াৰ কৰে আৰু একে সমস্যাৰ আন প্ৰতিবেদনৰ সম্ভাৱ্য মিল দেখুৱায়।")}</p></article><article className="process-step"><span className="step-no">03 / {tr(locale,"Follow through","অনুসৰণ")}</span><h3>{tr(locale,"Know what happens next","পিছত কি হ’ল জানক")}</h3><p>{tr(locale,"Teams can assign and update an issue. Reporters can follow the status and see the action taken.","দলে সমস্যাৰ দায়িত্ব লৈ স্থিতি আপডেট কৰে। প্ৰতিবেদন দিওঁতাই সমাধানৰ পদক্ষেপ চাব পাৰে।")}</p></article></div></div></section>
-    <footer className="landing-bottom"><div className="bottom-note"><Languages size={14}/><b>অসমীয়া + English</b><span>·</span><span>{tr(locale,"Built for Dibrugarh University","ডিব্ৰুগড় বিশ্ববিদ্যালয়ৰ বাবে নিৰ্মিত")}</span></div><div className="bottom-note"><Check size={13}/>{tr(locale,"Campus problems understood. Actions made visible.","কেম্পাছৰ সমস্যা বুজি, সমাধান দৃশ্যমান কৰক।")}</div></footer>
+    <footer className="landing-bottom"><div className="bottom-note"><Languages size={14}/><b>অসমীয়া + English</b><span>·</span><span>{tr(locale,"Built for campus communities","কেম্পাছৰ সমাজৰ বাবে নিৰ্মিত")}</span></div><div className="bottom-note"><Check size={13}/>{tr(locale,"Campus problems understood. Actions made visible.","কেম্পাছৰ সমস্যা বুজি, সমাধান দৃশ্যমান কৰক।")}</div></footer>
   </main>;
 }

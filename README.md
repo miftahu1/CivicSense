@@ -2,7 +2,7 @@
 
 **Campus problems understood. Actions made visible.**
 
-CivicSense is a production-backed bilingual campus issue platform for Dibrugarh University. Students can report in Assamese, Romanised Assamese, English, or mixed language. Campus staff work reports assigned to their department; administrators manage the team, review staff completions, and confirm semantic report clusters. Report originals and private photo attachments remain attached to their source-language submission.
+CivicSense is a production-backed bilingual campus issue platform for university communities. Students can report in Assamese, Romanised Assamese, English, or mixed language. Campus staff work reports assigned to their department; administrators manage the team, review staff completions, and confirm semantic report clusters. Report originals and private photo attachments remain attached to their source-language submission.
 
 There is no synthetic workspace or local-storage report fallback. Workspace routes require a valid Supabase session, and API routes enforce the stored profile role on the server.
 

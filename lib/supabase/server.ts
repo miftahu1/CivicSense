@@ -25,7 +25,12 @@ export function createServiceClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error("Supabase service configuration is missing.");
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+  const timeoutFetch: typeof fetch = (input, init = {}) => {
+    const timeoutSignal = AbortSignal.timeout(30_000);
+    const signal = init.signal ? AbortSignal.any([init.signal, timeoutSignal]) : timeoutSignal;
+    return fetch(input, { ...init, signal });
+  };
+  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false }, global: { fetch: timeoutFetch } });
 }
 
 export async function requireUser() {

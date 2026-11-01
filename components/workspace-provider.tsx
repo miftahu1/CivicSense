@@ -148,6 +148,21 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     const timer = window.setInterval(() => { void refresh().catch((error) => console.error("Workspace data could not be refreshed", error)); }, 30_000);
     return () => window.clearInterval(timer);
   }, [isAuthenticated, refresh]);
+  const hasPendingAnalysis = reports.some((report) => report.analysisStatus === "pending");
+  useEffect(() => {
+    if (!isAuthenticated || !hasPendingAnalysis) return;
+    let active = true;
+    let delay = 2_500;
+    let timer: number;
+    const poll = async () => {
+      try { await refresh(); }
+      catch (error) { console.error("Pending report status could not be refreshed", error); }
+      if (!active) return;
+      timer = window.setTimeout(() => { delay = Math.min(delay + 1_500, 10_000); void poll(); }, delay);
+    };
+    timer = window.setTimeout(() => void poll(), delay);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [isAuthenticated, hasPendingAnalysis, refresh]);
 
   const openReport = useCallback((id: string) => setSelectedReportId(id), []);
   const closeReport = useCallback(() => setSelectedReportId(null), []);
@@ -213,9 +228,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     if (input.image) form.set("image", input.image);
     const response = await fetch("/api/reports", { method: "POST", body: form });
     const body = await readResponse<{ report: Report }>(response);
-    await refresh();
+    setReports((current) => [body.report, ...current.filter((report) => report.id !== body.report.id)]);
     return body.report;
-  }, [refresh]);
+  }, []);
 
   const updateReport = useCallback(async (id: string, update: Partial<Pick<Report, "status" | "category" | "confirmedPriority" | "assignedTo" | "assignedDepartment">>, message?: string) => {
     if (user.role !== "admin" && user.role !== "staff") throw new Error("You do not have access to update this report.");

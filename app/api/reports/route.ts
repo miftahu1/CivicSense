@@ -1,7 +1,8 @@
+import { after } from "next/server";
 import { reportInputSchema } from "@/lib/schemas";
 import { authErrorResponse, requireUser } from "@/lib/supabase/server";
-import { loadReports } from "@/lib/db-mappers";
-import { appendEvent, getMappedReport, imageContentMatches, imageExtension, imageTypeAllowed, processSavedReport } from "@/lib/report-service";
+import { loadReports, mapReport } from "@/lib/db-mappers";
+import { appendEvent, imageContentMatches, imageExtension, imageTypeAllowed, processSavedReport } from "@/lib/report-service";
 
 export async function GET() {
   try {
@@ -15,6 +16,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const requestStartedAt = Date.now();
   try {
     const { admin, user, profile } = await requireUser();
     const form = await request.formData();
@@ -36,12 +38,14 @@ export async function POST(request: Request) {
       status: "Under review", analysis_status: "pending",
     }).select("*").single();
     if (insertError || !row) { console.error("Report insert failed", insertError); return Response.json({ error: "The report could not be saved. Please try again." }, { status: 500 }); }
+    console.info("Report row saved", { reportId: row.id, durationMs: Date.now() - requestStartedAt });
     try { await appendEvent(admin, { reportId: row.id, actorId: user.id, actorName: profile.full_name, newStatus: "Under review", message: "Report received and queued for analysis." }); }
     catch (eventError) { console.error("Report event could not be recorded", eventError); }
 
     let attachmentError: string | null = null;
     let hasImage = false;
     if (file instanceof File && file.size > 0) {
+      const photoUploadStartedAt = Date.now();
       const path = `${row.id}/${crypto.randomUUID()}${imageExtension(file.type)}`;
       const { error: uploadError } = await admin.storage.from("report-attachments").upload(path, fileBytes!, { contentType: file.type, upsert: false });
       if (uploadError) { console.error("Report photo upload failed", uploadError); attachmentError = "Photo could not be stored. The written report is still saved."; }
@@ -50,20 +54,28 @@ export async function POST(request: Request) {
         if (attachmentInsertError) { console.error("Report attachment record insert failed", attachmentInsertError); await admin.storage.from("report-attachments").remove([path]); attachmentError = "Photo could not be attached. The written report is still saved."; }
         else hasImage = true;
       }
+      console.info("Report photo upload finished", { reportId: row.id, durationMs: Date.now() - photoUploadStartedAt, saved: hasImage });
     }
 
-    let result: Awaited<ReturnType<typeof processSavedReport>> | null = null;
-    try { result = await processSavedReport(admin, row.id, false); }
-    catch (analysisError) {
-      console.error("Saved report processing failed", analysisError);
-      const message = "AI processing could not be completed. An administrator can retry.";
-      await admin.from("reports").update({ analysis_status: "failed", analysis_error: message }).eq("id", row.id);
-    }
-    if (attachmentError) {
-      await admin.from("reports").update({ analysis_error: attachmentError }).eq("id", row.id);
-      if (result?.report) result.report.analysisError = attachmentError;
-    }
-    const report = result?.report || await getMappedReport(admin, row.id);
-    return Response.json({ report, matches: result?.matches || [], analysisError: attachmentError || result?.analysisError || null, attachmentSaved: !file || file instanceof File && file.size === 0 || hasImage }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
+    if (attachmentError) await admin.from("reports").update({ analysis_error: attachmentError }).eq("id", row.id);
+    const report = mapReport(row);
+    after(async () => {
+      const startedAt = Date.now();
+      console.info("Background report analysis started", { reportId: row.id });
+      try {
+        await processSavedReport(admin, row.id, false);
+        if (attachmentError) await admin.from("reports").update({ analysis_error: attachmentError }).eq("id", row.id);
+        console.info("Background report analysis completed", { reportId: row.id, durationMs: Date.now() - startedAt });
+      } catch (analysisError) {
+        console.error("Background saved report processing failed", { reportId: row.id, durationMs: Date.now() - startedAt, error: analysisError });
+        try {
+          await admin.from("reports").update({ analysis_status: "failed", analysis_error: "Report analysis stopped unexpectedly. An administrator can retry." }).eq("id", row.id);
+        } catch (persistError) {
+          console.error("Failed to persist background analysis error", { reportId: row.id, error: persistError });
+        }
+      }
+    });
+    console.info("Report submission response ready", { reportId: row.id, durationMs: Date.now() - requestStartedAt });
+    return Response.json({ report, matches: [], analysisError: attachmentError, attachmentSaved: !file || file instanceof File && file.size === 0 || hasImage }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { return authErrorResponse(error); }
 }

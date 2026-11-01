@@ -82,19 +82,46 @@ export async function processSavedReport(admin: SupabaseClient, reportId: string
   }
   let analysis: Awaited<ReturnType<typeof analyzeReport>> | null = null;
   let embeddingValues: number[] | null = null;
-  try { analysis = await analyzeReport({ text: row.original_text, language: row.original_language, building: row.location_building, area: row.location_area || "", image }); }
-  catch (error) { console.error("Gemini report analysis failed", error); const message = "Bilingual analysis could not be completed. An administrator can retry."; analysisError = analysisError ? `${analysisError} ${message}` : message; }
-  try {
-    embeddingValues = await embedReport(row.original_text, row.location_building, row.location_area || "");
-    await saveEmbedding(admin, reportId, embeddingValues);
-  } catch (error) {
-    console.error("Gemini report embedding failed", error);
+  const aiStartedAt = Date.now();
+  const [analysisResult, embeddingResult] = await Promise.allSettled([
+    analyzeReport({ text: row.original_text, language: row.original_language, building: row.location_building, area: row.location_area || "", image }),
+    embedReport(row.original_text, row.location_building, row.location_area || ""),
+  ]);
+  console.info("Report AI calls finished", { reportId, durationMs: Date.now() - aiStartedAt, analysis: analysisResult.status, embedding: embeddingResult.status });
+  if (analysisResult.status === "fulfilled") analysis = analysisResult.value;
+  else {
+    const error = analysisResult.reason;
+    console.error("Gemini report analysis failed", { reportId, error });
+    const detail = error as { status?: number; statusCode?: number; message?: string };
+    const status = detail.status || detail.statusCode;
+    const messageText = (detail.message || "").toLowerCase();
+    const reason = status === 429 || messageText.includes("quota") || messageText.includes("resource_exhausted")
+      ? "Gemini is rate-limiting analysis right now. Please retry in a minute."
+      : status === 401 || status === 403 || messageText.includes("api key")
+        ? "Gemini rejected the configured API key or project access. Check the server key and API access."
+        : error instanceof Error && error.name === "ZodError"
+          ? "Gemini returned a result that did not match the expected report format. An administrator can retry."
+          : "Bilingual analysis could not be completed. Check the server log for the provider error; an administrator can retry.";
+    analysisError = analysisError ? `${analysisError} ${reason}` : reason;
+  }
+  if (embeddingResult.status === "fulfilled") {
+    embeddingValues = embeddingResult.value;
+    const embeddingSaveStartedAt = Date.now();
+    try { await saveEmbedding(admin, reportId, embeddingValues); }
+    catch (error) {
+      console.error("Gemini report embedding could not be saved", { reportId, durationMs: Date.now() - embeddingSaveStartedAt, error });
+      embeddingValues = null;
+      const message = "Cross-language matching could not be completed. An administrator can retry.";
+      analysisError = analysisError ? `${analysisError}; ${message}` : message;
+    }
+  } else {
+    console.error("Gemini report embedding failed", { reportId, error: embeddingResult.reason });
     const message = "Cross-language matching could not be completed. An administrator can retry.";
     analysisError = analysisError ? `${analysisError}; ${message}` : message;
   }
   const updates: Record<string, unknown> = {
-    analysis_status: analysis && embeddingValues ? "complete" : "failed",
-    analysis_error: analysis && embeddingValues ? analysisError : analysisError || "Analysis did not finish.",
+    analysis_status: analysis ? "complete" : "failed",
+    analysis_error: analysisError || (analysis ? null : "Analysis did not finish."),
   };
   if (analysis) Object.assign(updates, {
     original_language: analysis.detectedLanguage, category: analysis.category,
@@ -114,10 +141,12 @@ export async function processSavedReport(admin: SupabaseClient, reportId: string
   const report = updated ? (await loadReports(admin, [updated]))[0] : null;
   let matches: SimilarReport[] = [];
   if (embeddingValues) {
+    const matchStartedAt = Date.now();
     const { data: similarRows, error: similarError } = await admin.rpc("match_reports", {
       p_query_embedding: `[${embeddingValues.join(",")}]`, p_exclude_report_id: reportId,
       p_location_building: row.location_building, p_threshold: Number(process.env.SIMILARITY_THRESHOLD || "0.82"), p_match_count: 3,
     });
+    console.info("Report similarity search finished", { reportId, durationMs: Date.now() - matchStartedAt, resultCount: similarRows?.length || 0, failed: Boolean(similarError) });
     if (!similarError) matches = await buildSimilarReports(admin, similarRows || [], { language: analysis?.detectedLanguage || row.original_language }, isAdmin);
   }
   return { report, matches, analysisError };

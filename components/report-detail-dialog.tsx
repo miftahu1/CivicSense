@@ -16,7 +16,7 @@ export function ReportDetailDialog({ reportId, onClose }: { reportId: string; on
     return () => { if (dialog.open) dialog.close(); };
   }, []);
   return <dialog ref={dialogRef} className="report-dialog" aria-label={tr(locale, "Report details", "প্ৰতিবেদনৰ বিৱৰণ")} onCancel={(event) => { event.preventDefault(); onClose(); }} onClick={(event) => { if (event.target === dialogRef.current) onClose(); }}>
-    <div className="report-dialog-toolbar"><span>{tr(locale, "Campus issue record", "কেম্পাছৰ সমস্যাৰ তথ্য")}</span><button type="button" onClick={onClose} autoFocus aria-label={tr(locale, "Close report details", "প্ৰতিবেদনৰ বিৱৰণ বন্ধ কৰক")}><X size={19}/>{tr(locale, "Close", "বন্ধ কৰক")}</button></div>
+    <button type="button" className="report-dialog-close" onClick={onClose} autoFocus aria-label={tr(locale, "Close report details", "প্ৰতিবেদনৰ বিৱৰণ বন্ধ কৰক")}><X size={18}/></button>
     <div className="report-dialog-scroll"><ReportDetail reportId={reportId}/></div>
   </dialog>;
 }

@@ -19,7 +19,9 @@ const outputSchema = {
 
 function getClient() {
   if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
-  return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  // Bound provider waits: the SDK otherwise retries timed-out requests and can
+  // keep a report task open for several minutes.
+  return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY, httpOptions: { timeout: 30_000, retryOptions: { attempts: 2 } } });
 }
 
 export async function analyzeReport(input: { text: string; language: Language; building: string; area: string; image?: { mimeType: string; bytes: Buffer } }) {

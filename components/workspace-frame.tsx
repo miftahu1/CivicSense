@@ -28,6 +28,15 @@ export function WorkspaceFrame({ children }: { children: React.ReactNode }) {
     previousPathname.current = pathname;
     if (selectedReportId) queueMicrotask(closeReport);
   }, [pathname, selectedReportId, closeReport]);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (event.key.toLowerCase() !== "n" || event.metaKey || event.ctrlKey || event.altKey || user.role === "admin" || /INPUT|TEXTAREA|SELECT/.test(target.tagName) || target.isContentEditable) return;
+      router.push("/app/new");
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [router, user.role]);
   const studentNav = [
     { href: "/app", label: tr(locale, "Overview", "পৰিচিতি"), icon: Home },
     { href: "/app/new", label: tr(locale, "New report", "নতুন প্ৰতিবেদন"), icon: FilePlus2 },
@@ -52,11 +61,12 @@ export function WorkspaceFrame({ children }: { children: React.ReactNode }) {
   if (!authReady || !isAuthenticated) return <main className="auth-wrap" lang={locale}><section className="auth-main"><div className="auth-card"><Brand/><div className="section-kicker">{tr(locale, "Secure campus workspace", "সুৰক্ষিত কেম্পাছ ৱৰ্কস্পেচ")}</div><h2>{tr(locale, "Sign in to continue", "আগবাঢ়িবলৈ ছাইন ইন কৰক")}</h2><p>{tr(locale, "Campus reports and team tools are available to authorised accounts.", "কেম্পাছৰ প্ৰতিবেদন আৰু দলীয় সঁজুলি অনুমোদিত একাউণ্টৰ বাবে উপলব্ধ।")}</p><Link className="button button-primary" href="/login">{tr(locale, "Go to sign in", "ছাইন ইনলৈ যাওক")}</Link></div></section></main>;
 
   return <div className={`workspace ${collapsed ? "sidebar-collapsed" : ""}`} lang={locale}>
+    <a className="skip-link" href="#main-content">{tr(locale, "Skip to content", "বিষয়বস্তুলৈ যাওক")}</a>
     <aside className="sidebar" aria-label={tr(locale, "Main navigation", "মূল নেভিগেচন")}>
       <div className="sidebar-top"><Brand light href={user.role === "admin" ? "/admin" : "/app"}/><button className="collapse-button" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? tr(locale, "Expand sidebar", "কাষৰ তালিকা বহল কৰক") : tr(locale, "Collapse sidebar", "কাষৰ তালিকা সৰু কৰক")}>{collapsed ? <ChevronRight size={16}/> : <ChevronLeft size={16}/>}</button></div>
       <div className="sidebar-section"><div className="nav-label">{tr(locale, "Workspace", "ৱৰ্কস্পেচ")}</div>{nav.map((item) => {
         const Icon = item.icon; const active = pathname === item.href || (item.href.endsWith("issues") && pathname.startsWith("/admin/issues")) || (item.href === "/app/reports" && pathname.startsWith("/app/reports/"));
-        return <Link key={item.href} href={item.href} className={`side-link ${active ? "active" : ""}`} title={item.label}><Icon size={16}/><span>{item.label}</span></Link>;
+        return <Link key={item.href} href={item.href} className={`side-link ${active ? "active" : ""}`} title={item.label} aria-current={active ? "page" : undefined}><Icon size={16}/><span>{item.label}</span></Link>;
       })}</div>
       {user.role !== "admin" && <div className="sidebar-section"><div className="nav-label">{tr(locale, "Campus", "কেম্পাছ")}</div><a href="#workspace-info" onClick={(event) => { event.preventDefault(); document.getElementById("workspace-info")?.scrollIntoView({ behavior: "smooth" }); }} className="side-link" title={tr(locale, "Campus services", "কেম্পাছ সেৱা")}><Building2 size={16}/><span>{tr(locale, "Campus services", "কেম্পাছ সেৱা")}</span></a><Link href="/app" className="side-link" title={tr(locale, "Recent activity", "শেহতীয়া কাৰ্যকলাপ")}><Activity size={16}/><span>{tr(locale, "Recent activity", "শেহতীয়া কাৰ্যকলাপ")}</span></Link></div>}
       {user.role === "admin" && <div className="sidebar-section"><div className="nav-label">{tr(locale, "Administration", "প্ৰশাসন")}</div><Link href="/admin/issues" className="side-link" title={tr(locale, "Review queue", "পৰ্যালোচনাৰ শাৰী")}><ShieldCheck size={16}/><span>{tr(locale, "Review queue", "পৰ্যালোচনাৰ শাৰী")}</span></Link><Link href="/admin/clusters" className="side-link" title={tr(locale, "Manage clusters", "ক্লাষ্টাৰ পৰিচালনা")}><FolderKanban size={16}/><span>{tr(locale, "Manage clusters", "ক্লাষ্টাৰ পৰিচালনা")}</span></Link></div>}
@@ -72,7 +82,7 @@ export function WorkspaceFrame({ children }: { children: React.ReactNode }) {
           <div className="user-chip"><div className="avatar">{user.name.split(" ").map((part) => part[0]).slice(0, 2).join("")}</div><div><div className="user-name">{user.name}</div><div className="user-role">{roleLabel(user.role, locale)}</div></div></div>
         </div>
       </header>
-      <main className="content">{children}</main>
+      <main className="content" id="main-content">{children}</main>
     </div>
     <nav className={`mobile-bottom-nav role-${user.role}`} aria-label={tr(locale, "Mobile navigation", "ম’বাইল নেভিগেচন")}>{mobileNav.map((item) => { const Icon = item.icon; return <Link key={item.href} href={item.href} className={pathname === item.href ? "active" : ""}><Icon/><span>{item.label}</span></Link>; })}</nav>
     {selectedReportId && <ReportDetailDialog reportId={selectedReportId} onClose={closeReport}/>}
