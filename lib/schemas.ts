@@ -22,6 +22,13 @@ export const reportAnalysisSchema = z.object({
   sensitive: z.boolean(),
 });
 
+export const imageReportDraftSchema = z.object({
+  description: z.string().trim().min(10).max(5000),
+  category: z.enum(categories),
+  priority: z.enum(priorities),
+  priorityExplanation: z.string().trim().min(3).max(500),
+});
+
 export const updateReportSchema = z.object({
   status: z.enum(statuses).optional(),
   category: z.enum(categories).optional(),

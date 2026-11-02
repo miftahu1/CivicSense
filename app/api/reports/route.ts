@@ -1,8 +1,9 @@
 import { after, NextRequest } from "next/server";
 import { reportInputSchema } from "@/lib/schemas";
 import { authErrorResponse, requireUser } from "@/lib/supabase/server";
-import { loadReports, mapReport } from "@/lib/db-mappers";
+import { loadReports } from "@/lib/db-mappers";
 import { appendEvent, imageContentMatches, imageExtension, imageTypeAllowed, processSavedReport, processReportImage } from "@/lib/report-service";
+import { imageFingerprint, verifyImageReportDraft } from "@/lib/image-report-draft";
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,23 +26,31 @@ export async function POST(request: Request) {
   try {
     const { admin, user, profile } = await requireUser();
     const form = await request.formData();
-    const parsed = reportInputSchema.safeParse({ originalText: form.get("originalText"), language: form.get("language"), building: form.get("building"), area: form.get("area") || "", publicOptOut: form.get("publicOptOut") === "true", ...(form.get("category") ? { category: form.get("category") } : {}) });
+    const draftToken = form.get("imageDraftToken");
+    const imageDraft = typeof draftToken === "string" ? verifyImageReportDraft(draftToken) : null;
+    if (draftToken && !imageDraft) return Response.json({ error: "This image analysis draft has expired or is invalid. Analyze the photo again to continue." }, { status: 400 });
+    const parsed = reportInputSchema.safeParse({ originalText: form.get("originalText"), language: form.get("language") || undefined, building: form.get("building"), area: form.get("area") || "", publicOptOut: form.get("publicOptOut") === "true", ...(form.get("category") ? { category: form.get("category") } : {}) });
     if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message || "Review the report fields and try again." }, { status: 400 });
     const file = form.get("image");
     if (file && file instanceof File && file.size > 15 * 1024 * 1024) return Response.json({ error: "Images must be 15 MB or smaller." }, { status: 413 });
     if (file && file instanceof File && file.size > 0 && !imageTypeAllowed(file.type)) return Response.json({ error: "Use a JPEG, PNG, WebP, or HEIC image." }, { status: 415 });
+    const fileBytes = file instanceof File && file.size > 0 ? Buffer.from(await file.arrayBuffer()) : null;
+    if (file instanceof File && fileBytes && !imageContentMatches(file.type, fileBytes)) return Response.json({ error: "The selected file does not match its image type." }, { status: 415 });
+    if (imageDraft && (!fileBytes || imageDraft.userId !== user.id || imageDraft.building !== parsed.data.building || imageDraft.area !== parsed.data.area || imageDraft.imageHash !== imageFingerprint(fileBytes))) {
+      return Response.json({ error: "The photo or location changed after analysis. Analyze the current photo and location again." }, { status: 400 });
+    }
+    const imageDraftModified = imageDraft ? parsed.data.originalText.trim() !== imageDraft.suggestions.description || parsed.data.category !== imageDraft.suggestions.category : false;
     const { data: canSubmit, error: limitError } = await admin.rpc("consume_report_submission_slot", { p_user_id: user.id, p_limit: 10 });
     if (limitError) throw limitError;
     if (!canSubmit) return Response.json({ error: "You have reached the report limit. Try again in about an hour." }, { status: 429, headers: { "Retry-After": "3600", "Cache-Control": "no-store" } });
-    const fileBytes = file instanceof File && file.size > 0 ? Buffer.from(await file.arrayBuffer()) : null;
-    if (file instanceof File && fileBytes && !imageContentMatches(file.type, fileBytes)) return Response.json({ error: "The selected file does not match its image type." }, { status: 415 });
-
     // Persist the original before image processing or any Gemini request.
     const { data: row, error: insertError } = await admin.from("reports").insert({
       reporter_id: user.id, original_text: parsed.data.originalText, original_language: parsed.data.language,
-      category: parsed.data.category || "Other", location_building: parsed.data.building, location_area: parsed.data.area,
+      category: parsed.data.category || imageDraft?.suggestions.category || "Other", location_building: parsed.data.building, location_area: parsed.data.area,
       public_opt_out: parsed.data.publicOptOut,
-      status: "Under review", analysis_status: "pending", image_analysis_status: fileBytes ? 'pending' : 'complete',
+      suggested_priority: imageDraft?.suggestions.priority || "Medium",
+      priority_explanation: imageDraft?.suggestions.priorityExplanation || "",
+      status: "Under review", analysis_status: "pending", image_analysis_status: fileBytes ? (imageDraft ? "complete" : "pending") : "complete",
     }).select("*").single();
     if (insertError || !row) { console.error("Report insert failed", insertError); return Response.json({ error: "The report could not be saved. Please try again." }, { status: 500 }); }
     console.info("Report row saved", { reportId: row.id, durationMs: Date.now() - requestStartedAt });
@@ -65,11 +74,13 @@ export async function POST(request: Request) {
 
     if (attachmentError) await admin.from("reports").update({ analysis_error: attachmentError }).eq("id", row.id);
 
-    if (hasImage) {
+    if (hasImage && !imageDraft) {
       after(() => processReportImage(admin, row.id));
     }
 
-    const { report, matches, analysisError } = await processSavedReport(admin, row.id, false);
+    const { report, matches, analysisError } = await processSavedReport(admin, row.id, false, imageDraft ? {
+      ...(imageDraftModified ? { categoryHint: parsed.data.category || undefined, categoryOverride: parsed.data.category || undefined } : {}),
+    } : undefined);
 
     console.info("Report submission response ready", { reportId: row.id, durationMs: Date.now() - requestStartedAt });
     return Response.json({ report, matches, analysisError, attachmentSaved: !file || file instanceof File && file.size === 0 || hasImage }, { status: 201, headers: { "Cache-Control": "private, no-store" } });

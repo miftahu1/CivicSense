@@ -5,7 +5,7 @@ import {
   ThinkingLevel,
   Type,
 } from "@google/genai";
-import { reportAnalysisSchema } from "./schemas";
+import { imageReportDraftSchema, reportAnalysisSchema } from "./schemas";
 import type { Language } from "./types";
 
 const analysisSystemPrompt = `You are a civic issue tracking assistant for a university in Assam, India. Your role is to analyze student and staff reports, which may be in English, Assamese, or a mix of both (like "Romanised Assamese"). Your analysis must be concise, neutral, and directly relevant to the report. You will provide bilingual titles and summaries, and categorize the issue.
@@ -71,6 +71,17 @@ const analysisResponseSchema = {
     "confidence",
     "sensitive",
   ],
+};
+
+const imageReportDraftResponseSchema = {
+  type: Type.OBJECT,
+  properties: {
+    description: { type: Type.STRING },
+    category: { type: Type.STRING, enum: [...categories] },
+    priority: { type: Type.STRING, enum: ["Low", "Medium", "High", "Urgent"] },
+    priorityExplanation: { type: Type.STRING },
+  },
+  required: ["description", "category", "priority", "priorityExplanation"],
 };
 
 const safetySettings = [
@@ -187,6 +198,28 @@ export async function analyzeImage(image: { mimeType: string; bytes: Buffer }, o
     const description = result.text?.trim();
     if (!description) throw new Error("Gemini returned no image description.");
     return description;
+  });
+}
+
+export async function analyzeImageReportDraft(image: { mimeType: string; bytes: Buffer }, location: { building: string; area: string }, options: AiCallOptions = {}) {
+  return withModelFallback("image report draft", options, async (model, callOptions) => {
+    const result = await getClient().models.generateContent({
+      model,
+      contents: [{ role: "user", parts: [
+        { text: `Inspect this campus issue photo. Write a concise factual issue description based only on visible evidence, then suggest a category and priority. The campus location is ${location.building}${location.area ? `, ${location.area}` : ""}. Do not translate, summarize in another language, or infer facts that are not visible.` },
+        { inlineData: { mimeType: image.mimeType, data: image.bytes.toString("base64") } },
+      ] }],
+      config: {
+        systemInstruction: "You are a careful visual triage assistant for campus maintenance reports. Return a concise description, one best-fit issue category, and a justified priority. Distinguish visible facts from uncertainty. Use Urgent only for an apparent immediate safety risk.",
+        responseMimeType: "application/json",
+        responseSchema: imageReportDraftResponseSchema,
+        safetySettings,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        httpOptions: { timeout: callOptions.timeoutMs ?? 30_000, retryOptions: { attempts: callOptions.attempts ?? 2 } },
+      },
+    });
+    if (!result.text) throw new Error("Gemini returned no image report suggestions.");
+    return imageReportDraftSchema.parse(JSON.parse(result.text));
   });
 }
 

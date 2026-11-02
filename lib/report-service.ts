@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { analyzeImage, analyzeReport, embedReport } from "@/lib/ai";
 import { loadReports, mapReport } from "@/lib/db-mappers";
-import type { Language, Report, SimilarReport } from "@/lib/types";
+import type { Category, Language, Report, SimilarReport } from "@/lib/types";
 
 const allowedImages = new Set(["image/jpeg", "image/png", "image/webp", "image/heic"]);
 const allowedExtensions: Record<string, string> = { "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/heic": ".heic" };
@@ -118,7 +118,10 @@ export async function processReportImage(admin: SupabaseClient, reportId: string
     }
 }
 
-export async function processSavedReport(admin: SupabaseClient, reportId: string, isAdmin = true) {
+export async function processSavedReport(admin: SupabaseClient, reportId: string, isAdmin = true, options: {
+  categoryHint?: Category;
+  categoryOverride?: Category;
+} = {}) {
   const row = await getReportRow(admin, reportId);
   if (!row) throw new Error("Report not found.");
   
@@ -128,7 +131,7 @@ export async function processSavedReport(admin: SupabaseClient, reportId: string
   let embeddingValues: number[] | null = null;
   const aiStartedAt = Date.now();
   const [analysisResult, embeddingResult] = await Promise.allSettled([
-    analyzeReport({ text: row.original_text, building: row.location_building, area: row.location_area || "" }),
+    analyzeReport({ text: row.original_text, building: row.location_building, area: row.location_area || "", category: options.categoryHint }),
     embedReport(row.original_text, row.location_building, row.location_area || ""),
   ]);
   console.info("Report AI calls finished", { reportId, durationMs: Date.now() - aiStartedAt, analysis: analysisResult.status, embedding: embeddingResult.status });
@@ -168,7 +171,7 @@ export async function processSavedReport(admin: SupabaseClient, reportId: string
     analysis_error: analysisError || (analysis ? null : "Analysis did not finish."),
   };
   if (analysis) Object.assign(updates, {
-    original_language: analysis.detectedLanguage, category: analysis.category,
+    original_language: analysis.detectedLanguage, category: options.categoryOverride || analysis.category,
     suggested_priority: analysis.priority, priority_explanation: analysis.priorityExplanation,
     title_en: analysis.titleEn, title_as: analysis.titleAs,
     summary_en: analysis.summaryEn, summary_as: analysis.summaryAs,

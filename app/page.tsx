@@ -108,6 +108,29 @@ export default function LandingPage() {
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    let frame = 0;
+    const updateMotion = () => {
+      const scrollY = window.scrollY;
+      const progress = Math.min(scrollY / Math.max(window.innerHeight, 400), 1.3);
+      const shift = Math.min(scrollY * 0.12, 42);
+      const tilt = Math.min(progress * 8, 8);
+      document.documentElement.style.setProperty("--home-scroll-shift", `${shift}px`);
+      document.documentElement.style.setProperty("--home-scroll-tilt", `${tilt}deg`);
+      document.documentElement.style.setProperty("--home-scroll-progress", progress.toFixed(4));
+    };
+    const handleScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(updateMotion);
+    };
+    updateMotion();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
   return <main className="landing home-landing" lang={locale}>
     <section className="home-hero">
       <Image src={campusHero} alt="" fill priority sizes="100vw" className="home-campus-image" aria-hidden="true" />
