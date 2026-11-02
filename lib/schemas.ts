@@ -33,7 +33,7 @@ export const updateReportSchema = z.object({
 
 export const reportInputSchema = z.object({
   originalText: z.string().trim().min(10).max(5000),
-  language: z.enum(["English", "Assamese", "Romanised Assamese", "Mixed"]),
+  language: z.enum(["English", "Assamese", "Romanised Assamese", "Mixed"]).optional().default("Mixed"),
   building: z.string().trim().min(2).max(120),
   area: z.string().trim().max(120).default(""),
   category: z.enum(categories).optional(),

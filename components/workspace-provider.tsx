@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { AppUser, IssueCluster, Language, Report, UserRole } from "@/lib/types";
+import type { AppUser, IssueCluster, Report, UserRole } from "@/lib/types";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import type { InterfaceLanguage } from "@/lib/i18n";
@@ -15,7 +15,7 @@ const emptyUser = (preferredLanguage: InterfaceLanguage = "en"): AppUser => ({
   preferredLanguage,
 });
 
-type SubmitReportInput = { originalText: string; language: Language; building: string; area: string; category?: Report["category"]; image?: File };
+type SubmitReportInput = { originalText: string; building: string; area: string; category?: Report["category"]; image?: File };
 type WorkspaceContextValue = {
   user: AppUser;
   isAuthenticated: boolean;
@@ -224,7 +224,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   const submitReport = useCallback(async (input: SubmitReportInput) => {
     const form = new FormData();
-    form.set("originalText", input.originalText); form.set("language", input.language);
+    form.set("originalText", input.originalText);
     form.set("building", input.building); form.set("area", input.area); if (input.category) form.set("category", input.category);
     if (input.image) form.set("image", input.image);
     const response = await fetch("/api/reports", { method: "POST", body: form });
@@ -242,10 +242,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, [user.role, refresh]);
 
   const deleteReport = useCallback(async (id: string) => {
-    const supabase = createSupabaseBrowserClient();
-    if (!supabase) throw new Error("Supabase is not configured.");
-    const { error } = await supabase.rpc("delete_report", { report_id: id });
-    if (error) throw error;
+    const response = await fetch(`/api/reports/${id}`, { method: "DELETE" });
+    await readResponse(response);
     setReports((current) => current.filter((report) => report.id !== id));
   }, []);
 

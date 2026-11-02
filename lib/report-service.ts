@@ -99,7 +99,7 @@ export async function processSavedReport(admin: SupabaseClient, reportId: string
   let embeddingValues: number[] | null = null;
   const aiStartedAt = Date.now();
   const [analysisResult, embeddingResult] = await Promise.allSettled([
-    analyzeReport({ text: row.original_text, language: row.original_language, building: row.location_building, area: row.location_area || "" }),
+    analyzeReport({ text: row.original_text, building: row.location_building, area: row.location_area || "" }),
     embedReport(row.original_text, row.location_building, row.location_area || ""),
   ]);
   console.info("Report AI calls finished", { reportId, durationMs: Date.now() - aiStartedAt, analysis: analysisResult.status, embedding: embeddingResult.status });

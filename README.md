@@ -24,7 +24,8 @@ Requirements: Node.js 20.9 or newer and npm.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Browser sign-in and cookie-backed session. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Server-only access for protected report workflows and private storage. |
 | `GEMINI_API_KEY` | Yes | Server-side bilingual analysis and embeddings. |
-| `GEMINI_MODEL` | No | Defaults to `gemini-3.8-flash`. |
+| `GEMINI_MODEL` | No | Defaults to `gemini-3.6-flash`. |
+| `GEMINI_FALLBACK_MODEL` | No | Defaults to `gemini-3.5-flash-lite`; used for report or image generation if the primary Gemini model fails. |
 | `GEMINI_EMBEDDING_MODEL` | No | Defaults to `gemini-embedding-2`. |
 | `SIMILARITY_THRESHOLD` | No | Defaults to `0.82`; validate with native Assamese speakers before relying on matches. |
 

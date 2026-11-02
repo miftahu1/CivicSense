@@ -12,6 +12,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (loadError) throw loadError;
     if (!before) return Response.json({ error: "Report not found." }, { status: 404 });
     const input = parsed.data;
+    if (input.assignedDepartment) {
+      const { data: matchingStaff, error: staffError } = await admin.from("profiles").select("id").eq("role", "staff").eq("department", input.assignedDepartment).limit(1);
+      if (staffError) throw staffError;
+      if (!matchingStaff?.length) return Response.json({ error: "Assign this report to a department that has a staff member in Team access." }, { status: 400 });
+    }
     if (before.status === "Awaiting admin review" && input.status === "In progress" && !input.message?.trim()) {
       return Response.json({ error: "Add a review note before returning this report to staff." }, { status: 400 });
     }

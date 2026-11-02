@@ -15,7 +15,17 @@ export function WorkspaceFrame({ children }: { children: React.ReactNode }) {
   const previousPathname = useRef(pathname);
   const router = useRouter();
   const { user, locale, isAuthenticated, signOut, reports, selectedReportId, closeReport, authReady } = useWorkspace();
-  const [collapsed, setCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(244);
+  const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  const resizingSidebar = useRef(false);
+  const collapsed = sidebarWidth <= 100;
+
+  function toggleSidebar() {
+    setSidebarWidth((width) => width <= 100 ? 244 : 72);
+  }
+  function resizeSidebar(event: React.PointerEvent<HTMLDivElement>) {
+    if (resizingSidebar.current) setSidebarWidth(event.clientX < 108 ? 72 : Math.max(108, Math.min(380, event.clientX)));
+  }
   useEffect(() => {
     if (!authReady) return;
     if (!isAuthenticated) { router.replace("/login"); return; }
@@ -47,31 +57,43 @@ export function WorkspaceFrame({ children }: { children: React.ReactNode }) {
     { href: "/admin/issues", label: tr(locale, "Issue desk", "অভিযোগৰ ডেস্ক"), icon: ClipboardList },
     { href: "/admin/clusters", label: tr(locale, "Issue clusters", "সমস্যাৰ ক্লাষ্টাৰ"), icon: Layers3 },
     { href: "/admin/team", label: tr(locale, "Team access", "দলৰ প্ৰৱেশাধিকাৰ"), icon: UsersRound },
+    { href: "/admin/diagnostics", label: tr(locale, "AI diagnostics", "এআই পৰীক্ষা"), icon: Activity },
   ];
   const staffNav = [
     { href: "/staff", label: tr(locale, "Assigned work", "দায়িত্ব দিয়া কাম"), icon: ClipboardList },
     { href: "/app/new", label: tr(locale, "Report an issue", "সমস্যা জনাওক"), icon: FilePlus2 },
     { href: "/app/reports", label: tr(locale, "My reports", "মোৰ প্ৰতিবেদন"), icon: Home },
   ];
+  const campusNav = user.role === "admin" ? [] : [
+    { href: "/app/campus-services", label: tr(locale, "Campus services", "কেম্পাছ সেৱা"), icon: Building2 },
+    { href: "/app/activity", label: tr(locale, "Recent activity", "শেহতীয়া কাৰ্যকলাপ"), icon: Activity },
+  ];
   const nav = user.role === "admin" ? adminNav : user.role === "staff" ? staffNav : studentNav;
-  const pageTitle = [...studentNav, ...staffNav, ...adminNav].find((item) => item.href === pathname)?.label ?? (pathname.includes("/reports/") ? tr(locale, "Report details", "প্ৰতিবেদনৰ বিৱৰণ") : pathname.startsWith("/staff") ? tr(locale, "Assigned work", "দায়িত্ব দিয়া কাম") : tr(locale, "New report", "নতুন প্ৰতিবেদন"));
+  const pageTitle = [...studentNav, ...staffNav, ...adminNav, ...campusNav].find((item) => item.href === pathname)?.label ?? (pathname.includes("/reports/") ? tr(locale, "Report details", "প্ৰতিবেদনৰ বিৱৰণ") : pathname.startsWith("/staff") ? tr(locale, "Assigned work", "দায়িত্ব দিয়া কাম") : tr(locale, "New report", "নতুন প্ৰতিবেদন"));
   const unread = reports.some((report) => report.reporterId === user.id && report.events.length > 0);
   const mobileNav = nav;
 
   if (!authReady || !isAuthenticated) return <main className="auth-wrap" lang={locale}><section className="auth-main"><div className="auth-card"><Brand/><div className="section-kicker">{tr(locale, "Secure campus workspace", "সুৰক্ষিত কেম্পাছ ৱৰ্কস্পেচ")}</div><h2>{tr(locale, "Sign in to continue", "আগবাঢ়িবলৈ ছাইন ইন কৰক")}</h2><p>{tr(locale, "Campus reports and team tools are available to authorised accounts.", "কেম্পাছৰ প্ৰতিবেদন আৰু দলীয় সঁজুলি অনুমোদিত একাউণ্টৰ বাবে উপলব্ধ।")}</p><Link className="button button-primary" href="/login">{tr(locale, "Go to sign in", "ছাইন ইনলৈ যাওক")}</Link></div></section></main>;
 
-  return <div className={`workspace ${collapsed ? "sidebar-collapsed" : ""}`} lang={locale}>
+  return <div className={`workspace ${collapsed ? "sidebar-collapsed" : ""} ${isResizingSidebar ? "sidebar-resizing" : ""}`} lang={locale} style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}>
     <a className="skip-link" href="#main-content">{tr(locale, "Skip to content", "বিষয়বস্তুলৈ যাওক")}</a>
     <aside className="sidebar" aria-label={tr(locale, "Main navigation", "মূল নেভিগেচন")}>
-      <div className="sidebar-top"><Brand light href={user.role === "admin" ? "/admin" : "/app"}/><button className="collapse-button" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? tr(locale, "Expand sidebar", "কাষৰ তালিকা বহল কৰক") : tr(locale, "Collapse sidebar", "কাষৰ তালিকা সৰু কৰক")}>{collapsed ? <ChevronRight size={16}/> : <ChevronLeft size={16}/>}</button></div>
+      <div className="sidebar-top"><Brand light href={user.role === "admin" ? "/admin" : "/app"}/><button className="collapse-button" onClick={toggleSidebar} aria-label={collapsed ? tr(locale, "Expand sidebar", "কাষৰ তালিকা বহল কৰক") : tr(locale, "Collapse sidebar", "কাষৰ তালিকা সৰু কৰক")}>{collapsed ? <ChevronRight size={16}/> : <ChevronLeft size={16}/>}</button></div>
       <div className="sidebar-section"><div className="nav-label">{tr(locale, "Workspace", "ৱৰ্কস্পেচ")}</div>{nav.map((item) => {
         const Icon = item.icon; const active = pathname === item.href || (item.href.endsWith("issues") && pathname.startsWith("/admin/issues")) || (item.href === "/app/reports" && pathname.startsWith("/app/reports/"));
         return <Link key={item.href} href={item.href} className={`side-link ${active ? "active" : ""}`} title={item.label} aria-current={active ? "page" : undefined}><Icon size={16}/><span>{item.label}</span></Link>;
       })}</div>
-      {user.role !== "admin" && <div className="sidebar-section"><div className="nav-label">{tr(locale, "Campus", "কেম্পাছ")}</div><a href="#workspace-info" onClick={(event) => { event.preventDefault(); document.getElementById("workspace-info")?.scrollIntoView({ behavior: "smooth" }); }} className="side-link" title={tr(locale, "Campus services", "কেম্পাছ সেৱা")}><Building2 size={16}/><span>{tr(locale, "Campus services", "কেম্পাছ সেৱা")}</span></a><Link href="/app" className="side-link" title={tr(locale, "Recent activity", "শেহতীয়া কাৰ্যকলাপ")}><Activity size={16}/><span>{tr(locale, "Recent activity", "শেহতীয়া কাৰ্যকলাপ")}</span></Link></div>}
+      {campusNav.length > 0 && <div className="sidebar-section"><div className="nav-label">{tr(locale, "Campus", "কেম্পাছ")}</div>{campusNav.map((item) => { const Icon = item.icon; const active = pathname === item.href; return <Link key={item.href} href={item.href} className={`side-link ${active ? "active" : ""}`} title={item.label} aria-current={active ? "page" : undefined}><Icon size={16}/><span>{item.label}</span></Link>; })}</div>}
       {user.role === "admin" && <div className="sidebar-section"><div className="nav-label">{tr(locale, "Administration", "প্ৰশাসন")}</div><Link href="/admin/issues" className="side-link" title={tr(locale, "Review queue", "পৰ্যালোচনাৰ শাৰী")}><ShieldCheck size={16}/><span>{tr(locale, "Review queue", "পৰ্যালোচনাৰ শাৰী")}</span></Link><Link href="/admin/clusters" className="side-link" title={tr(locale, "Manage clusters", "ক্লাষ্টাৰ পৰিচালনা")}><FolderKanban size={16}/><span>{tr(locale, "Manage clusters", "ক্লাষ্টাৰ পৰিচালনা")}</span></Link></div>}
       <div className="sidebar-bottom"><Link href="/" className="help-link"><CircleHelp size={15}/><span>{tr(locale, "About CivicSense", "CivicSense-ৰ বিষয়ে")}</span></Link><div className="demo-mode"><strong><span className="live-dot"/> {tr(locale, "Connected", "সংযুক্ত")}</strong>{tr(locale, "Signed in to your campus workspace.", "আপুনি কেম্পাছৰ ৱৰ্কস্পেচত ছাইন ইন কৰিছে।")}</div></div>
     </aside>
+    <div className="sidebar-resize-handle" role="separator" aria-label={tr(locale, "Resize sidebar", "কাষৰ তালিকাৰ আকাৰ সলনি কৰক")} aria-orientation="vertical" aria-valuemin={72} aria-valuemax={380} aria-valuenow={sidebarWidth} tabIndex={0}
+      onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); resizingSidebar.current = true; setIsResizingSidebar(true); }}
+      onPointerMove={resizeSidebar}
+      onPointerUp={(event) => { resizingSidebar.current = false; setIsResizingSidebar(false); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
+      onPointerCancel={() => { resizingSidebar.current = false; setIsResizingSidebar(false); }}
+      onDoubleClick={() => setSidebarWidth(244)}
+      onKeyDown={(event) => { if (event.key === "ArrowLeft") setSidebarWidth((width) => Math.max(72, width - 16)); if (event.key === "ArrowRight") setSidebarWidth((width) => Math.min(380, width + 16)); }} />
     <div className="main-area">
       <header className="topbar">
         <div className="crumbs"><span>{tr(locale, "Campus operations", "কেম্পাছ পৰিচালনা")}</span><span>›</span><strong>{pageTitle}</strong></div>
