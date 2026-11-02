@@ -48,7 +48,12 @@ export async function findSimilarReports(admin: SupabaseClient, input: { text: s
   return { values, candidates: (data || []) as Array<{ report_id: string; similarity: number; cosine_similarity: number; location_match: boolean }> };
 }
 
-export async function buildSimilarReports(admin: SupabaseClient, values: Array<{ report_id: string; similarity: number; location_match: boolean }>, source: { language: Language }, isAdmin: boolean): Promise<SimilarReport[]> {
+export async function buildSimilarReports(
+  admin: SupabaseClient,
+  values: Array<{ report_id: string; similarity: number; cosine_similarity?: number; location_match: boolean }>,
+  source: { language: Language; building?: string; area?: string; category?: Report["category"]; createdAt?: string },
+  isAdmin: boolean,
+): Promise<SimilarReport[]> {
   if (!values.length) return [];
   const { data, error } = await admin.from("reports").select("*").in("id", values.map((value) => value.report_id)).eq("is_synthetic", false).neq("status", "Resolved");
   if (error || !data?.length) return [];
@@ -58,15 +63,39 @@ export async function buildSimilarReports(admin: SupabaseClient, values: Array<{
     const report = byId.get(value.report_id);
     if (!report) return [];
     const languageDiffers = source.language !== report.originalLanguage;
-    const explanationAs = value.location_match
-      ? languageDiffers ? "দুয়োটা প্ৰতিবেদনৰ ভাষা পৃথক, কিন্তু অৰ্থৰ ফালৰ পৰা মিল আছে আৰু একেটা ভৱনৰ সৈতে জড়িত।" : "দুয়োটা প্ৰতিবেদন অৰ্থৰ ফালৰ পৰা মিল আছে আৰু একেটা ভৱনৰ সৈতে জড়িত।"
-      : languageDiffers ? "বিভিন্ন ভাষাত লিখা বৰ্ণনাসমূহ অৰ্থৰ ফালৰ পৰা মিল আছে; স্থান বেলেগ হোৱাত দুয়োটা পৰ্যালোচনা কৰক।" : "বৰ্ণনাসমূহ অৰ্থৰ ফালৰ পৰা মিল আছে; একেলগ কৰাৰ আগতে স্থান পৰ্যালোচনা কৰক।";
-    const explanation = value.location_match
-      ? languageDiffers ? "The descriptions are semantically similar across languages and refer to the same campus building." : "The descriptions are semantically similar and refer to the same campus building."
-      : languageDiffers ? "The descriptions are semantically similar across languages; the location is different, so please review both reports." : "The descriptions are semantically similar; please review the locations before grouping.";
+    const normalizeArea = (area: string) => area.normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+    const sourceArea = normalizeArea(source.area || "");
+    const candidateArea = normalizeArea(report.area);
+    const partialAreaMatch = Math.min(sourceArea.length, candidateArea.length) >= 8 && (sourceArea.includes(candidateArea) || candidateArea.includes(sourceArea));
+    const sameArea = Boolean(sourceArea && candidateArea && (sourceArea === candidateArea || partialAreaMatch));
+    const sameCategory = Boolean(source.category && source.category === report.category);
+    const sourceTime = source.createdAt ? Date.parse(source.createdAt) : Date.parse(report.createdAt);
+    const candidateTime = Date.parse(report.createdAt);
+    const daysApart = Number.isFinite(sourceTime) && Number.isFinite(candidateTime)
+      ? Math.floor(Math.abs(sourceTime - candidateTime) / 86_400_000)
+      : 0;
+    const normalizeBuilding = (building: string) => building.normalize("NFKC").trim().toLocaleLowerCase();
+    const sameBuilding = value.location_match || Boolean(source.building && normalizeBuilding(source.building) === normalizeBuilding(report.building));
+    const contextSignals = [sameBuilding, sameArea, sameCategory].filter(Boolean).length;
+    const explanation = contextSignals >= 2
+      ? languageDiffers ? "The text is semantically similar and multiple context details also align. The reports use different languages." : "The text is semantically similar and multiple context details also align."
+      : sameBuilding
+        ? "The text is semantically similar and the building matches; check the exact area and issue details before grouping."
+        : "The text is semantically similar, but the location differs. Confirm these describe the same underlying issue before grouping.";
+    const explanationAs = contextSignals >= 2
+      ? languageDiffers ? "বিৱৰণৰ অৰ্থৰ মিল আছে আৰু প্ৰসংগৰ কেইবাটাও তথ্যও একে। প্ৰতিবেদন দুটা বেলেগ ভাষাত লিখা হৈছে।" : "বিৱৰণৰ অৰ্থৰ মিল আছে আৰু প্ৰসংগৰ কেইবাটাও তথ্যও একে।"
+      : sameBuilding
+        ? "বিৱৰণৰ অৰ্থৰ মিল আছে আৰু ভৱনটো একে; একেলগ কৰাৰ আগতে নিৰ্দিষ্ট ঠাই আৰু সমস্যাটো পৰীক্ষা কৰক।"
+        : "বিৱৰণৰ অৰ্থৰ মিল আছে, কিন্তু স্থান বেলেগ। একেলগ কৰাৰ আগতে এইবোৰ একেটা মূল সমস্যাৰ বিষয়ে নে নিশ্চিত কৰক।";
     const safeReport = isAdmin ? report : { ...report, reporterName: "Campus community member", reporterId: "", originalText: "", imageUrl: undefined, imageCaption: undefined, events: [] };
-    return [{ report: safeReport, score: Number(value.similarity), explanation, explanationAs }];
-  });
+    return [{
+      report: safeReport,
+      score: Number(value.cosine_similarity ?? value.similarity),
+      explanation,
+      explanationAs,
+      evidence: { sameBuilding, sameArea, sameCategory, differentLanguage: languageDiffers, daysApart },
+    }];
+  }).sort((a, b) => b.score - a.score);
 }
 
 export async function processReportImage(admin: SupabaseClient, reportId: string) {
@@ -159,7 +188,13 @@ export async function processSavedReport(admin: SupabaseClient, reportId: string
       p_location_building: row.location_building, p_threshold: Number(process.env.SIMILARITY_THRESHOLD || "0.82"), p_match_count: 3,
     });
     console.info("Report similarity search finished", { reportId, durationMs: Date.now() - matchStartedAt, resultCount: similarRows?.length || 0, failed: Boolean(similarError) });
-    if (!similarError) matches = await buildSimilarReports(admin, similarRows || [], { language: analysis?.detectedLanguage || row.original_language }, isAdmin);
+    if (!similarError) matches = await buildSimilarReports(admin, similarRows || [], {
+      language: analysis?.detectedLanguage || row.original_language,
+      building: row.location_building,
+      area: row.location_area || "",
+      category: analysis?.category || row.category,
+      createdAt: row.created_at,
+    }, isAdmin);
   }
   return { report, matches, analysisError };
 }

@@ -37,6 +37,7 @@ export const reportInputSchema = z.object({
   building: z.string().trim().min(2).max(120),
   area: z.string().trim().max(120).default(""),
   category: z.enum(categories).optional(),
+  publicOptOut: z.boolean().optional().default(false),
 });
 
 export const clusterInputSchema = z.object({

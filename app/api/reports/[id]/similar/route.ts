@@ -16,9 +16,15 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       await saveEmbedding(admin, id, values);
       embedding = `[${values.join(",")}]`;
     }
-    const { data, error } = await admin.rpc("match_reports", { p_query_embedding: embedding, p_exclude_report_id: id, p_location_building: row.location_building, p_threshold: Number(process.env.SIMILARITY_THRESHOLD || "0.82"), p_match_count: 3 });
+    const { data, error } = await admin.rpc("match_reports", { p_query_embedding: embedding, p_exclude_report_id: id, p_location_building: row.location_building, p_threshold: Number(process.env.SIMILARITY_THRESHOLD || "0.82"), p_match_count: 10 });
     if (error) throw error;
-    const matches = await buildSimilarReports(admin, data || [], { language: row.original_language }, true);
+    const matches = await buildSimilarReports(admin, data || [], {
+      language: row.original_language,
+      building: row.location_building,
+      area: row.location_area || "",
+      category: row.category,
+      createdAt: row.created_at,
+    }, true);
     return Response.json({ matches }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { return authErrorResponse(error); }
 }

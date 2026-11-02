@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { ArrowRight, Building2, Check, ChevronLeft, ChevronRight, CircleCheck, Droplet, FilePlus2, Flag, GitMerge, Globe2, Languages, Layers3, Lightbulb, Pencil, Recycle, ShieldCheck, Sparkles, TriangleAlert, UserRound, UsersRound, Zap } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { LanguageToggle } from "@/components/language-toggle";
@@ -90,6 +90,7 @@ export default function LandingPage() {
   const { locale, isAuthenticated, user } = useWorkspace();
   const [exampleKey, setExampleKey] = useState<ExampleKey>("as");
   const [issueStart, setIssueStart] = useState(0);
+  const [publicIssuesEnabled, setPublicIssuesEnabled] = useState(false);
   const orderedIssueCards = [...issueCards.slice(issueStart), ...issueCards.slice(0, issueStart)];
   const example = examples[exampleKey];
   const isAs = locale === "as";
@@ -99,13 +100,21 @@ export default function LandingPage() {
   const secondaryCtaHref = isAuthenticated ? workspaceHref : "/app";
   const secondaryCtaLabel = isAuthenticated ? tr(locale, "Continue to workspace", "ৱর্কস্পেচলৈ আগবাঢ়ক") : tr(locale, "Explore the workspace", "ৱৰ্কস্পেচ চাওক");
 
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/public/issues/status", { cache: "no-store" }).then((response) => response.json()).then((body: { enabled?: boolean }) => {
+      if (active) setPublicIssuesEnabled(Boolean(body.enabled));
+    }).catch(() => { if (active) setPublicIssuesEnabled(false); });
+    return () => { active = false; };
+  }, []);
+
   return <main className="landing home-landing" lang={locale}>
     <section className="home-hero">
       <Image src={campusHero} alt="" fill priority sizes="100vw" className="home-campus-image" aria-hidden="true" />
       <div className="home-hero-shade" aria-hidden="true" />
       <div className="home-topbar"><nav className="home-nav" aria-label={tr(locale,"Main navigation","মূল নেভিগেশ্বন")}>
         <Brand light/>
-        <div className="home-nav-links"><a href="#how-it-works">{tr(locale,"How it works","ই কেনেকৈ কাম কৰে")}</a><a href="#features">{tr(locale,"Features","সুবিধাসমূহ")}</a><a href="#activity">{tr(locale,"Campus activity","কেম্পাছৰ কাৰ্যকলাপ")}</a><a href="#languages">{tr(locale,"Built for campus","কেম্পাছৰ বাবে নিৰ্মিত")}</a></div>
+        <div className="home-nav-links"><a href="#how-it-works">{tr(locale,"How it works","ই কেনেকৈ কাম কৰে")}</a><a href="#features">{tr(locale,"Features","সুবিধাসমূহ")}</a><a href="#activity">{tr(locale,"Campus activity","কেম্পাছৰ কাৰ্যকলাপ")}</a><a href="#languages">{tr(locale,"Built for campus","কেম্পাছৰ বাবে নিৰ্মিত")}</a>{publicIssuesEnabled && <Link href="/issues">{tr(locale,"Public issues","ৰাজহুৱা সমস্যা")}</Link>}</div>
         <div className="home-nav-actions"><LanguageToggle/>{!isAuthenticated && <Link href="/login" className="home-signin">{tr(locale,"Sign in","ছাইন ইন")}</Link>}<Link href={workspaceHref} className="home-open-workspace">{tr(locale,"Open workspace","ৱৰ্কস্পেচ খোলক")} <ArrowRight size={15}/></Link></div>
       </nav></div>
 

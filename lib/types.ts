@@ -35,6 +35,7 @@ export type Report = {
   assignedDepartment?: string | null;
   department: string;
   sensitive: boolean;
+  publicOptOut?: boolean;
   analysisStatus: "pending" | "complete" | "failed";
   analysisConfidence?: number | null;
   analysisError?: string | null;
@@ -62,7 +63,9 @@ export type IssueCluster = {
   location: string;
   status: ReportStatus;
   assignedTo: string | null;
+  assignedDepartment?: string | null;
   reportIds: string[];
+  reports?: Report[];
   createdAt: string;
 };
 
@@ -71,6 +74,13 @@ export type SimilarReport = {
   score: number;
   explanation: string;
   explanationAs: string;
+  evidence?: {
+    sameBuilding: boolean;
+    sameArea: boolean;
+    sameCategory: boolean;
+    differentLanguage: boolean;
+    daysApart: number;
+  };
 };
 
 export type AppUser = {

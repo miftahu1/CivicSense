@@ -15,7 +15,7 @@ const emptyUser = (preferredLanguage: InterfaceLanguage = "en"): AppUser => ({
   preferredLanguage,
 });
 
-type SubmitReportInput = { originalText: string; building: string; area: string; category?: Report["category"]; image?: File };
+type SubmitReportInput = { originalText: string; building: string; area: string; category?: Report["category"]; publicOptOut?: boolean; image?: File };
 type WorkspaceContextValue = {
   user: AppUser;
   isAuthenticated: boolean;
@@ -35,7 +35,7 @@ type WorkspaceContextValue = {
   updateReport: (id: string, update: Partial<Pick<Report, "status" | "category" | "confirmedPriority" | "assignedTo" | "assignedDepartment">>, message?: string) => Promise<void>;
   deleteReport: (id: string) => Promise<void>;
   createCluster: (title: string, ids: string[]) => Promise<void>;
-  updateCluster: (id: string, update: Partial<Pick<IssueCluster, "title" | "status" | "assignedTo">>, separateReportId?: string, resolutionMessage?: string) => Promise<void>;
+  updateCluster: (id: string, update: Partial<Pick<IssueCluster, "title" | "status" | "assignedTo" | "assignedDepartment">>, separateReportId?: string, resolutionMessage?: string) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -226,6 +226,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     const form = new FormData();
     form.set("originalText", input.originalText);
     form.set("building", input.building); form.set("area", input.area); if (input.category) form.set("category", input.category);
+    form.set("publicOptOut", String(Boolean(input.publicOptOut)));
     if (input.image) form.set("image", input.image);
     const response = await fetch("/api/reports", { method: "POST", body: form });
     const body = await readResponse<{ report: Report }>(response);
@@ -255,7 +256,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [user.role, refresh]);
 
-  const updateCluster = useCallback(async (id: string, update: Partial<Pick<IssueCluster, "title" | "status" | "assignedTo">>, separateReportId?: string, resolutionMessage?: string) => {
+  const updateCluster = useCallback(async (id: string, update: Partial<Pick<IssueCluster, "title" | "status" | "assignedTo" | "assignedDepartment">>, separateReportId?: string, resolutionMessage?: string) => {
     if (user.role !== "admin") throw new Error("Administrator access is required to update a cluster.");
     const response = await fetch(`/api/admin/clusters/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...update, ...(separateReportId ? { action: "separate", reportId: separateReportId } : {}), ...(resolutionMessage ? { message: resolutionMessage } : {}) }) });
     await readResponse(response);

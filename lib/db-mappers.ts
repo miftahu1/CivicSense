@@ -8,7 +8,7 @@ type DbReport = {
   suggested_priority: Report["suggestedPriority"]; confirmed_priority: Report["suggestedPriority"] | null;
   priority_explanation: string | null; department: string | null; location_building: string; location_area: string;
   status: ReportStatus; cluster_id: string | null; assigned_to: string | null; assigned_to_name: string | null; assigned_department?: string | null;
-  sensitive_flag: boolean; analysis_status: Report["analysisStatus"]; analysis_confidence: number | null;
+  sensitive_flag: boolean; public_opt_out?: boolean; analysis_status: Report["analysisStatus"]; analysis_confidence: number | null;
   analysis_error: string | null; is_synthetic: boolean; created_at: string; updated_at: string;
 };
 type DbEvent = { id: string; report_id: string; actor_id: string | null; actor_name: string | null; old_status: ReportStatus | null; new_status: ReportStatus | null; message: string; created_at: string };
@@ -27,14 +27,14 @@ export function mapReport(row: DbReport, options: { reporterName?: string; event
     category: row.category, suggestedPriority: row.suggested_priority, confirmedPriority: row.confirmed_priority,
     priorityExplanation: row.priority_explanation || "Awaiting review.", building: row.location_building, area: row.location_area || "",
     status: row.status, clusterId: row.cluster_id, assignedTo: row.assigned_to_name || row.assigned_to || null, assignedDepartment: row.assigned_department || null,
-    department: row.department || "Awaiting analysis", sensitive: Boolean(row.sensitive_flag), analysisStatus: row.analysis_status, analysisConfidence: row.analysis_confidence ?? null, analysisError: row.analysis_error ?? null, isSynthetic: Boolean(row.is_synthetic),
+    department: row.department || "Awaiting analysis", sensitive: Boolean(row.sensitive_flag), publicOptOut: Boolean(row.public_opt_out), analysisStatus: row.analysis_status, analysisConfidence: row.analysis_confidence ?? null, analysisError: row.analysis_error ?? null, isSynthetic: Boolean(row.is_synthetic),
     createdAt: row.created_at, updatedAt: row.updated_at, imageUrl: options.imageUrl, imageCaption: options.imageCaption,
     events: options.events || [],
   };
 }
 
-export function mapCluster(row: { id:string; title:string; category:Report["category"]; location:string; status:ReportStatus; assigned_to?:string|null; assigned_to_name?:string|null; created_at:string }, reportIds: string[] = []): IssueCluster {
-  return { id: row.id, title: row.title, category: row.category, location: row.location, status: row.status, assignedTo: row.assigned_to_name || row.assigned_to || null, reportIds, createdAt: row.created_at };
+export function mapCluster(row: { id:string; title:string; category:Report["category"]; location:string; status:ReportStatus; assigned_to?:string|null; assigned_to_name?:string|null; created_at:string }, reportIds: string[] = [], assignedDepartment: string | null = null, reports: Report[] = []): IssueCluster {
+  return { id: row.id, title: row.title, category: row.category, location: row.location, status: row.status, assignedTo: row.assigned_to_name || row.assigned_to || null, assignedDepartment, reportIds, reports, createdAt: row.created_at };
 }
 
 export async function loadReports(admin: SupabaseClient, rows: DbReport[]) {

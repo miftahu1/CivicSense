@@ -1,0 +1,25 @@
+"use client";
+
+import Link from "next/link";
+import { ArrowLeft, ArrowRight, Check, Languages, Layers3, ShieldCheck, Sparkles } from "lucide-react";
+import { Brand } from "@/components/brand";
+import { LanguageToggle } from "@/components/language-toggle";
+import { useWorkspace } from "@/components/workspace-provider";
+import { tr } from "@/lib/i18n";
+
+export function HowItWorksContent() {
+  const { locale } = useWorkspace();
+  const steps = [
+    { icon: <Languages/>, title: tr(locale, "Report in your language", "আপোনাৰ ভাষাত সমস্যা জনাওক"), body: tr(locale, "Describe a campus concern in English, Assamese, or Romanised Assamese. You can add a location and supporting details.", "ইংৰাজী, অসমীয়া বা ৰোমানাইজড অসমীয়াত কেম্পাছৰ সমস্যা বৰ্ণনা কৰক। স্থান আৰু সহায়ক তথ্যও যোগ কৰিব পাৰে।") },
+    { icon: <Sparkles/>, title: tr(locale, "AI helps organise it", "AI-য়ে তথ্যসমূহ সজায়"), body: tr(locale, "CivicSense prepares a concise bilingual summary and suggests a category and priority. Campus staff review suggestions before taking action.", "CivicSense-এ দ্বিভাষিক চমু সাৰাংশ প্ৰস্তুত কৰে আৰু শ্ৰেণী তথা অগ্ৰাধিকাৰ পৰামৰ্শ দিয়ে। কাম কৰাৰ আগতে কেম্পাছৰ কৰ্মচাৰীয়ে পৰামৰ্শসমূহ পৰ্যালোচনা কৰে।") },
+    { icon: <Layers3/>, title: tr(locale, "The right team responds", "সঠিক দলে সঁহাৰি দিয়ে"), body: tr(locale, "Staff review reports, group related concerns when appropriate, and assign work to the team responsible for the issue.", "কৰ্মচাৰীয়ে প্ৰতিবেদন পৰ্যালোচনা কৰে, উপযুক্ত ক্ষেত্ৰত একে ধৰণৰ সমস্যা একেলগ কৰে আৰু দায়িত্বশীল দলক কাম দিয়ে।") },
+    { icon: <Check/>, title: tr(locale, "Follow progress to resolution", "সমাধানলৈকে অগ্ৰগতি অনুসৰণ কৰক"), body: tr(locale, "Reporters can follow status changes. When updates are shared publicly, the community can see progress without seeing private details.", "প্ৰতিবেদন দিওঁতাই স্থিতিৰ পৰিৱৰ্তন অনুসৰণ কৰিব পাৰে। আপডেট ৰাজহুৱাকৈ ভাগ কৰিলে, সম্প্ৰদায়ে ব্যক্তিগত তথ্য নেদেখাকৈ অগ্ৰগতি চাব পাৰে।") },
+  ];
+  return <main className="public-issues-page how-it-works-page"><header className="public-issues-nav"><Brand href="/"/><div className="public-issues-nav-actions"><LanguageToggle/><Link className="button button-outline button-small" href="/issues"><ArrowLeft size={14}/>{tr(locale, "Issue board", "সমস্যা ফলক")}</Link></div></header>
+    <section className="how-it-works-hero"><div className="section-kicker">{tr(locale, "A clear path from concern to action", "সমস্যাৰ পৰা সমাধানলৈ এটা স্পষ্ট পথ")}</div><h1>{tr(locale, "How CivicSense works.", "CivicSense-এ কেনেকৈ কাম কৰে।")}</h1><p>{tr(locale, "A shared process helps campus concerns reach the right people, with clear updates at every step.", "এটা একত্ৰিত প্ৰক্ৰিয়াই কেম্পাছৰ সমস্যাসমূহ সঠিক লোকৰ ওচৰলৈ নিয়াত আৰু প্ৰতিটো পদক্ষেপত স্পষ্ট আপডেট দিয়াত সহায় কৰে।")}</p></section>
+    <section className="how-it-works-steps"><div className="how-it-works-line" aria-hidden="true"/>{steps.map((step, index) => <article className="how-step" key={step.title}><div className="how-step-icon">{step.icon}</div><div className="how-step-copy"><div className="section-kicker">{tr(locale, `Step ${index + 1}`, `পদক্ষেপ ${index + 1}`)}</div><h2>{step.title}</h2><p>{step.body}</p></div></article>)}</section>
+    <section className="how-privacy"><div className="how-privacy-icon"><ShieldCheck/></div><div><div className="section-kicker">{tr(locale, "Privacy comes first", "গোপনীয়তা প্ৰথম")}</div><h2>{tr(locale, "Public progress. Private details.", "ৰাজহুৱা অগ্ৰগতি। ব্যক্তিগত তথ্য গোপন।")}</h2><p>{tr(locale, "Reports marked private, reports flagged as sensitive, and synthetic demonstration reports are excluded from the public issue board. Public pages show a bilingual summary, category, priority, location, and status history only. Reporter identity, original submission, images, staff notes, and assignment details stay private.", "ব্যক্তিগত বুলি চিহ্নিত, সংবেদনশীল বুলি ধৰা আৰু কল্পিত ডেম’ প্ৰতিবেদন ৰাজহুৱা ফলকৰ পৰা বাদ পৰে। ৰাজহুৱা পৃষ্ঠাত কেৱল দ্বিভাষিক সাৰাংশ, শ্ৰেণী, অগ্ৰাধিকাৰ, স্থান আৰু স্থিতিৰ ইতিহাস দেখুওৱা হয়। প্ৰতিবেদন দিওঁতাৰ পৰিচয়, মূল দাখিল, ছবি, কৰ্মচাৰীৰ টোকা আৰু দায়িত্বৰ তথ্য গোপন থাকে।")}</p></div><div className="how-privacy-points"><span><Check size={14}/>{tr(locale, "No reporter names", "প্ৰতিবেদন দিওঁতাৰ নাম নাই")}</span><span><Check size={14}/>{tr(locale, "No images or original text", "মূল লিখনি বা ছবি নাই")}</span><span><Check size={14}/>{tr(locale, "Sensitive reports excluded", "সংবেদনশীল প্ৰতিবেদন বাদ")}</span></div></section>
+    <section className="how-cta"><div><div className="section-kicker">{tr(locale, "See the campus response", "কেম্পাছৰ সঁহাৰি চাওক")}</div><h2>{tr(locale, "A clearer view starts here.", "ইয়াতেই স্পষ্ট ছবি আৰম্ভ হয়।")}</h2></div><Link className="button button-light" href="/issues">{tr(locale, "Browse public issues", "ৰাজহুৱা সমস্যা চাওক")} <ArrowRight size={15}/></Link></section>
+    <footer className="public-issues-footer"><span>{tr(locale, "Campus problems understood. Actions made visible.", "কেম্পাছৰ সমস্যা বুজি, কাম-কাজ দৃশ্যমান কৰা হৈছে।")}</span><Link href="/">{tr(locale, "CivicSense home", "CivicSense মূল পৃষ্ঠা")}</Link></footer>
+  </main>;
+}
