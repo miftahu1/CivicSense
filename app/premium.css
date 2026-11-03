@@ -277,3 +277,4 @@ h1,h2,h3{text-wrap:balance}p{text-wrap:pretty}
 }
 @media(hover:none){.panel:hover{transform:none}.home-report-card,.home-activity-card,.home-workflow-card{transform:none!important}}
 @media(prefers-reduced-motion:reduce){.panel,.summary-card,.form-panel,.detail-panel,.team-panel,.aside-card{transition:none}}
+@media(max-width:600px){.staff-cluster-grid{grid-template-columns:minmax(0,1fr);padding:10px}.staff-cluster-member{align-items:flex-start;padding:11px 10px}.staff-cluster-state{align-items:flex-end;flex-direction:column}}

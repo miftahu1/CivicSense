@@ -28,8 +28,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (status === "Investigating" && !["Under review", "Investigating"].includes(report.status)) {
       return Response.json({ error: "A report already in progress cannot be moved back to investigation." }, { status: 409 });
     }
-    if (status === "In progress" && !["Investigating", "In progress"].includes(report.status)) {
-      return Response.json({ error: "Move the report to Investigating before starting work." }, { status: 409 });
+    if (status === "In progress" && !["Under review", "Investigating", "In progress"].includes(report.status)) {
+      return Response.json({ error: "This report cannot be moved to In progress from its current state." }, { status: 409 });
     }
     if (status === "Awaiting admin review" && report.status !== "In progress") {
       return Response.json({ error: "Move the report to In progress before requesting administrator review." }, { status: 409 });

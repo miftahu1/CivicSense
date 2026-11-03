@@ -81,6 +81,7 @@ export function ReportDetail({
   } = useWorkspace();
   const report = reports.find((item) => item.id === id);
   const [matches, setMatches] = useState < SimilarReport[] > ([]);
+  const [relatedCluster, setRelatedCluster] = useState<{ id: string; title: string; location: string; status: Report['status']; reportIds: string[] } | null>(null);
   const [matchesForId, setMatchesForId] = useState < string | null > (null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -89,7 +90,7 @@ export function ReportDetail({
   const isAdmin = user.role === 'admin';
   const canStaffWork = user.role === 'staff' && Boolean(user.department && report?.assignedDepartment === user.department);
   const backHref = isAdmin ? '/admin/issues' : user.role === 'staff' ? '/staff' : '/app/reports';
-  const loadingMatches = Boolean(report && !isDemo && isAdmin && matchesForId !== report.id);
+  const loadingMatches = Boolean(report && !isDemo && matchesForId !== report.id);
 
   useEffect(() => {
     if (!isDemo && !report && !notFound) void refresh().then(() => {
@@ -97,16 +98,19 @@ export function ReportDetail({
     });
   }, [isDemo, report, refresh, reports, id, notFound]);
   useEffect(() => {
-    if (!report || isDemo || user.role !== 'admin') return;
+    if (!report || isDemo) return;
     let current = true;
+    setMatches([]);
+    setRelatedCluster(null);
     fetch(`/api/reports/${report.id}/similar`, {
       cache: 'no-store'
     }).then(async (response) => {
       if (response.ok) {
         const body = await response.json() as {
-          matches: SimilarReport[]
+          matches: SimilarReport[];
+          cluster?: { id: string; title: string; location: string; status: Report['status']; reportIds: string[] } | null;
         };
-        if (current) setMatches(body.matches);
+        if (current) { setMatches(body.matches); setRelatedCluster(body.cluster || null); }
       }
     }).catch(() => undefined).finally(() => {
       if (current) setMatchesForId(report.id);
@@ -124,7 +128,7 @@ export function ReportDetail({
   })) : [], [report, reports]);
   const related = isDemo ? demoRelated : matches;
   if (!report) return <div className = 'panel empty-state' > < Clock3 size = {21} /> <h3 > {  notFound ? tr(locale, 'Report not found', 'প্ৰতিবেদন পোৱা নগ’ল') : tr(locale, 'Loading report', 'প্ৰতিবেদন লোড হৈছে')  } </h3><p>{notFound ? tr(locale,'This report is unavailable or you do not have access to it.','এই প্ৰতিবেদন উপলব্ধ নহয় বা চোৱাৰ অনুমতি নাই।') : tr(locale,'This report may belong to your connected account.','এই প্ৰতিবেদন আপোনাৰ সংযুক্ত একাউণ্টৰ হ’ব পাৰে।')}</p > < Link href = {backHref} className = 'button button-outline button-small' > { tr(locale, 'Back to reports', 'প্ৰতিবেদনলৈ উভতি যাওক') } </Link></div > ;
-  const cluster = clusters.find((item) => item.id === report.clusterId);
+  const cluster = clusters.find((item) => item.id === report.clusterId) || relatedCluster;
   const events = [...report.events].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const sourceLang = report.originalLanguage === 'Assamese' ? 'as' : report.originalLanguage === 'Romanised Assamese' ? 'as-Latn' : report.originalLanguage === 'Mixed' ? 'mul' : 'en';
 
@@ -342,8 +346,21 @@ function ReportStaffControls({
     }
   }
   if (report.status === 'Awaiting admin review') return <section className = 'detail-panel staff-review-wait' > < div className = 'section-kicker' > { tr(language, 'Administrator review', 'প্ৰশাসকৰ পৰ্যালোচনা') } </div><h2>{tr(language, 'Your update is with the administrator', 'আপোনাৰ আপডেট প্ৰশাসকৰ ওচৰত আছে')}</h2 > < p > { tr(language, 'You’ll see the decision and any follow-up note in the report history.', 'সিদ্ধান্ত আৰু পৰৱৰ্তী টোকা প্ৰতিবেদনৰ ইতিহাসত দেখা পাব।') } </p></section > ;
-  const allowedStates: Array < 'Investigating' | 'In progress' > = report.status === 'Under review' ? ['Investigating'] : ['Investigating', 'In progress'];
+  const allowedStates: Array < 'Investigating' | 'In progress' > = ['Investigating', 'In progress'];
+  async function submitForReview() {
+    const workNote = note.trim();
+    if (status !== 'In progress' || workNote.length < 3) return;
+    onSaving(true);
+    try {
+      if (report.status !== 'In progress') await updateReport(report.id, { status: 'In progress' }, workNote);
+      await updateReport(report.id, { status: 'Awaiting admin review' }, workNote);
+      setNote('');
+      toast.success(tr(language, 'Sent to the administrator for review.', 'প্ৰশাসকৰ পৰ্যালোচনালৈ পঠিওৱা হ’ল।'));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr(language, 'Work could not be submitted for review.', 'কাম পৰ্যালোচনালৈ পঠিয়াব পৰা নগ’ল।'));
+    } finally { onSaving(false); }
+  }
   return <section className = 'detail-panel staff-update-panel' > < div className = 'section-kicker' style = { {
     marginBottom: 8
-  } } > { tr(language, 'Department actions', 'বিভাগৰ পদক্ষেপ') } </div><h2>{tr(language,'Record work on this issue','এই সমস্যাৰ কামৰ বিৱৰণ দিয়ক')}</h2 > < p className = 'muted-copy' > { tr(language, 'Update the work state and leave a note for the reporter. Staff cannot close an issue; completed work goes to an administrator for approval.', 'কামৰ স্থিতি আপডেট কৰি প্ৰতিবেদন দিওঁতাক এটা টোকা দিয়ক। কৰ্মচাৰীয়ে সমস্যা বন্ধ কৰিব নোৱাৰে; সম্পূৰ্ণ কাম অনুমোদনৰ বাবে প্ৰশাসকলৈ যায়।') } </p><div className='admin-controls'><label>{tr(language,'Work state','কামৰ স্থিতি')}<select value={status} onChange={(event)=>setStatus(event.target.value as 'Investigating' | 'In progress')}>{allowedStates.map((item)=><option key={item} value={item}>{statusLabel(item,language)}</option>)}</select></label > < label > { tr(language, 'Work note', 'কামৰ টোকা') } < textarea value = {note} maxLength = {1000} onChange = { (event) => setNote(event.target.value) } placeholder = { tr(language, 'Describe what you checked or completed…', 'আপুনি কি পৰীক্ষা বা সম্পূৰ্ণ কৰিলে লিখক…') } /> </label><div className='staff-action-row'><button className='button button-primary' disabled={saving || note.trim().length < 3} onClick={()=>void save(status)}><Send size={14}/>{saving?tr(language,'Saving…','সংৰক্ষণ হৈছে…'):tr(language,'Save work update','কামৰ আপডেট সংৰক্ষণ')}</button > < button className = 'button button-terracotta' disabled = { saving || report.status !== 'In progress' || note.trim().length < 3 } onClick = { () => void save('Awaiting admin review') } > < ShieldCheck size = {15} /> {tr(language,'Submit for admin review','প্ৰশাসকৰ পৰ্যালোচনালৈ পঠিয়াওক')}</button > </div>{report.status !== 'In progress' && <span className='field-hint'>{tr(language,'Move the issue to In progress before sending it for review.','পৰ্যালোচনালৈ পঠিওৱাৰ আগতে সমস্যাটো কাম চলি থকা অৱস্থালৈ নিন।')}</span > }</div></section > ;
+  } } > { tr(language, 'Department actions', 'বিভাগৰ পদক্ষেপ') } </div><h2>{tr(language,'Record work on this issue','এই সমস্যাৰ কামৰ বিৱৰণ দিয়ক')}</h2 > < p className = 'muted-copy' > { tr(language, 'Update the work state and leave a note for the reporter. Staff cannot close an issue; completed work goes to an administrator for approval.', 'কামৰ স্থিতি আপডেট কৰি প্ৰতিবেদন দিওঁতাক এটা টোকা দিয়ক। কৰ্মচাৰীয়ে সমস্যা বন্ধ কৰিব নোৱাৰে; সম্পূৰ্ণ কাম অনুমোদনৰ বাবে প্ৰশাসকলৈ যায়।') } </p><div className='admin-controls'><label>{tr(language,'Work state','কামৰ স্থিতি')}<select value={status} onChange={(event)=>setStatus(event.target.value as 'Investigating' | 'In progress')}>{allowedStates.map((item)=><option key={item} value={item}>{statusLabel(item,language)}</option>)}</select></label > < label > { tr(language, 'Work note', 'কামৰ টোকা') } < textarea value = {note} maxLength = {1000} onChange = { (event) => setNote(event.target.value) } placeholder = { tr(language, 'Describe what you checked or completed…', 'আপুনি কি পৰীক্ষা বা সম্পূৰ্ণ কৰিলে লিখক…') } /> </label><div className='staff-action-row'><button className='button button-primary' disabled={saving || note.trim().length < 3} onClick={()=>void save(status)}><Send size={14}/>{saving?tr(language,'Saving…','সংৰক্ষণ হৈছে…'):tr(language,'Save work update','কামৰ আপডেট সংৰক্ষণ')}</button > < button className = 'button button-terracotta' disabled = { saving || status !== 'In progress' || note.trim().length < 3 } onClick = { () => void submitForReview() } > < ShieldCheck size = {15} /> {tr(language,'Submit for admin review','প্ৰশাসকৰ পৰ্যালোচনালৈ পঠিওৱা')}</button > </div>{status !== 'In progress' && <span className='field-hint'>{tr(language,'Select In progress before submitting completed work for review.','সম্পূৰ্ণ কাম পৰ্যালোচনালৈ পঠিয়াবলৈ In progress বাছক।')}</span > }</div></section > ;
 }
