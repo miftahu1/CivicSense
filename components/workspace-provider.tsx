@@ -17,7 +17,7 @@ const emptyUser = (preferredLanguage: InterfaceLanguage = "en"): AppUser => ({
   preferredLanguage,
 });
 
-type SubmitReportInput = { originalText: string; building: string; area: string; category?: Report["category"]; publicOptOut?: boolean; image?: File; imageDraftToken?: string };
+type SubmitReportInput = { originalText: string; building: string; area: string; category?: Report["category"]; publicOptOut?: boolean; liveLocation?: { latitude: number; longitude: number; accuracyMeters: number }; image?: File; imageDraftToken?: string };
 type WorkspaceContextValue = {
   user: AppUser;
   isAuthenticated: boolean;
@@ -249,6 +249,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     const form = new FormData();
     form.set("originalText", input.originalText);
     form.set("building", input.building); form.set("area", input.area); if (input.category) form.set("category", input.category);
+    if (input.liveLocation) {
+      form.set("latitude", String(input.liveLocation.latitude));
+      form.set("longitude", String(input.liveLocation.longitude));
+      form.set("accuracyMeters", String(input.liveLocation.accuracyMeters));
+    }
     form.set("publicOptOut", String(Boolean(input.publicOptOut)));
     if (input.image) form.set("image", input.image);
     if (input.imageDraftToken) form.set("imageDraftToken", input.imageDraftToken);

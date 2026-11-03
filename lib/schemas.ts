@@ -44,8 +44,17 @@ export const reportInputSchema = z.object({
   language: z.enum(["English", "Assamese", "Romanised Assamese", "Mixed"]).optional().default("Mixed"),
   building: z.string().trim().min(2).max(120),
   area: z.string().trim().max(120).default(""),
+  latitude: z.number().finite().min(-90).max(90).optional(),
+  longitude: z.number().finite().min(-180).max(180).optional(),
+  accuracyMeters: z.number().finite().min(0).max(25_000_000).optional(),
   category: z.enum(categories).optional(),
   publicOptOut: z.boolean().optional().default(false),
+}).refine((input) => (input.latitude === undefined) === (input.longitude === undefined), {
+  message: "Provide both coordinates or omit both.",
+  path: ["latitude"],
+}).refine((input) => input.accuracyMeters === undefined || input.latitude !== undefined, {
+  message: "Location accuracy requires a location pin.",
+  path: ["accuracyMeters"],
 });
 
 export const clusterInputSchema = z.object({

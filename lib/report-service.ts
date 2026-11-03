@@ -88,7 +88,8 @@ export async function buildSimilarReports(
       : sameBuilding
         ? "বিৱৰণৰ অৰ্থৰ মিল আছে আৰু ভৱনটো একে; একেলগ কৰাৰ আগতে নিৰ্দিষ্ট ঠাই আৰু সমস্যাটো পৰীক্ষা কৰক।"
         : "বিৱৰণৰ অৰ্থৰ মিল আছে, কিন্তু স্থান বেলেগ। একেলগ কৰাৰ আগতে এইবোৰ একেটা মূল সমস্যাৰ বিষয়ে নে নিশ্চিত কৰক।";
-    const safeReport = isAdmin ? report : { ...report, reporterName: "Campus community member", reporterId: "", originalText: "", imageUrl: undefined, imageCaption: undefined, events: [] };
+    const reportWithoutPreciseLocation = { ...report, latitude: null, longitude: null, locationAccuracyMeters: null };
+    const safeReport = isAdmin ? reportWithoutPreciseLocation : { ...reportWithoutPreciseLocation, reporterName: "Campus community member", reporterId: "", originalText: "", imageUrl: undefined, imageCaption: undefined, events: [] };
     return [{
       report: safeReport,
       score: Number(value.cosine_similarity ?? value.similarity),

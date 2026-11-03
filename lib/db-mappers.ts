@@ -8,6 +8,7 @@ type DbReport = {
   summary_en: string | null; summary_as: string | null; category: Report["category"];
   suggested_priority: Report["suggestedPriority"]; confirmed_priority: Report["suggestedPriority"] | null;
   priority_explanation: string | null; department: string | null; location_building: string; location_area: string;
+  location_latitude?: number | null; location_longitude?: number | null; location_accuracy_meters?: number | null;
   status: ReportStatus; cluster_id: string | null; assigned_to: string | null; assigned_to_name: string | null; assigned_department?: string | null;
   sensitive_flag: boolean; public_opt_out?: boolean; analysis_status: Report["analysisStatus"]; analysis_confidence: number | null;
   analysis_error: string | null; is_synthetic: boolean; created_at: string; updated_at: string;
@@ -27,6 +28,7 @@ export function mapReport(row: DbReport, options: { reporterName?: string; event
     titleEn: row.title_en || row.original_text.slice(0, 72), titleAs: row.title_as || "বিশ্লেষণৰ অপেক্ষাত",
     category: row.category, suggestedPriority: row.suggested_priority, confirmedPriority: row.confirmed_priority,
     priorityExplanation: row.priority_explanation || "Awaiting review.", building: row.location_building, area: row.location_area || "",
+    latitude: row.location_latitude ?? null, longitude: row.location_longitude ?? null, locationAccuracyMeters: row.location_accuracy_meters ?? null,
     status: row.status, clusterId: row.cluster_id, assignedTo: row.assigned_to_name || row.assigned_to || null, assignedDepartment: normalizeDepartment(row.assigned_department) || row.assigned_department || null,
     department: normalizeDepartment(row.department) || row.department || "Awaiting analysis", sensitive: Boolean(row.sensitive_flag), publicOptOut: Boolean(row.public_opt_out), analysisStatus: row.analysis_status, analysisConfidence: row.analysis_confidence ?? null, analysisError: row.analysis_error ?? null, isSynthetic: Boolean(row.is_synthetic),
     createdAt: row.created_at, updatedAt: row.updated_at, imageUrl: options.imageUrl, imageCaption: options.imageCaption,

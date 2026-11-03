@@ -31,7 +31,16 @@ export async function POST(request: Request) {
     const draftToken = form.get("imageDraftToken");
     const imageDraft = typeof draftToken === "string" ? verifyImageReportDraft(draftToken) : null;
     if (draftToken && !imageDraft) return Response.json({ error: "This image analysis draft has expired or is invalid. Analyze the photo again to continue." }, { status: 400 });
-    const parsed = reportInputSchema.safeParse({ originalText: form.get("originalText"), language: form.get("language") || undefined, building: form.get("building"), area: form.get("area") || "", publicOptOut: form.get("publicOptOut") === "true", ...(form.get("category") ? { category: form.get("category") } : {}) });
+    const optionalNumber = (name: string) => {
+      const value = form.get(name);
+      return typeof value === "string" && value.trim() ? Number(value) : undefined;
+    };
+    const parsed = reportInputSchema.safeParse({
+      originalText: form.get("originalText"), language: form.get("language") || undefined,
+      building: form.get("building"), area: form.get("area") || "",
+      latitude: optionalNumber("latitude"), longitude: optionalNumber("longitude"), accuracyMeters: optionalNumber("accuracyMeters"),
+      publicOptOut: form.get("publicOptOut") === "true", ...(form.get("category") ? { category: form.get("category") } : {}),
+    });
     if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message || "Review the report fields and try again." }, { status: 400 });
     const file = form.get("image");
     if (file && file instanceof File && file.size > 15 * 1024 * 1024) return Response.json({ error: "Images must be 15 MB or smaller." }, { status: 413 });
@@ -74,6 +83,8 @@ export async function POST(request: Request) {
     const { data: row, error: insertError } = await admin.from("reports").insert({
       reporter_id: user.id, original_text: parsed.data.originalText, original_language: parsed.data.language,
       category: parsed.data.category || imageDraft?.suggestions.category || "Other", location_building: parsed.data.building, location_area: parsed.data.area,
+      location_latitude: parsed.data.latitude ?? null, location_longitude: parsed.data.longitude ?? null,
+      location_accuracy_meters: parsed.data.accuracyMeters ?? null,
       public_opt_out: parsed.data.publicOptOut,
       suggested_priority: imageDraft?.suggestions.priority || "Medium",
       priority_explanation: imageDraft?.suggestions.priorityExplanation || "",

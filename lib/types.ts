@@ -29,6 +29,9 @@ export type Report = {
   priorityExplanation: string;
   building: string;
   area: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  locationAccuracyMeters?: number | null;
   status: ReportStatus;
   clusterId: string | null;
   assignedTo: string | null;

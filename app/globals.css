@@ -311,6 +311,11 @@ button { color: inherit; }
 .image-preview img { display: block; max-width: 220px; max-height: 160px; object-fit: cover; }
 .remove-image { position: absolute; right: 5px; top: 5px; border: 0; color: #fff; background: #1e302bcc; width: 25px; height: 25px; display: grid; place-items: center; cursor: pointer; }
 .location-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.live-location-control { display:grid; gap:7px; margin-top:12px; padding:12px 13px; border:1px solid #e0dfd6; border-radius:6px; background:#f7f6f0; }
+.live-location-row { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.live-location-attached { display:inline-flex; align-items:center; gap:5px; color:#2d704c; font-size:12px; font-weight:650; }
+.live-location-remove { padding:4px 2px; color:#9a4934; background:transparent; border:0; cursor:pointer; font:inherit; font-size:12px; }
+.live-location-error { color:#a24435; font-size:12px; line-height:1.5; }
 .form-aside { display: grid; gap: 14px; }
 .aside-card { padding: 18px; background: #ebeae1; }
 .aside-card h3 { margin: 0 0 11px; font: 400 17px var(--serif); }
@@ -398,6 +403,10 @@ button { color: inherit; }
 .detail-stat { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #e7e5dd; color: #879087; font-size: 12px; }
 .detail-stat:last-child { border: 0; }
 .detail-stat strong { color: #3b4c42; text-align: right; font-size: 12px; font-weight: 600; }
+.detail-location-map { padding:9px 0 10px; border-bottom:1px solid #e7e5dd; }
+.detail-location-map a { display:inline-flex; align-items:center; flex-wrap:wrap; gap:6px; color:#3b6b50; font-size:12px; font-weight:650; text-decoration:none; }
+.detail-location-map a:hover { text-decoration:underline; }
+.detail-location-map a span { color:#7b847b; font-size:11px; font-weight:500; }
 .admin-controls { display: grid; gap: 11px; margin-top: 15px; }
 .admin-controls label { display: grid; gap: 6px; color: #798178; font-size: 11px; }
 .admin-controls select, .admin-controls textarea { width: 100%; border: 1px solid #d8d8cf; background: #fffefb; min-height: 34px; padding: 8px; color: #34443a; outline: none; font-size: 12px; }

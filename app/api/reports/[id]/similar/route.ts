@@ -43,10 +43,10 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const matches = authorizedMembers.map((member) => {
       const report = mapReport(member);
       const privacySafeReport = isAssignedStaff ? {
-        ...report, reporterName: "Campus community member", reporterId: "", originalText: "", imageUrl: undefined, imageCaption: undefined, events: [],
+        ...report, reporterName: "Campus community member", reporterId: "", originalText: "", latitude: null, longitude: null, locationAccuracyMeters: null, imageUrl: undefined, imageCaption: undefined, events: [],
       } : {
         ...report, reporterName: "Campus community", reporterId: "", originalText: "", summaryEn: report.summaryEn.slice(0, 220), summaryAs: report.summaryAs.slice(0, 220),
-        area: "", assignedTo: null, assignedDepartment: null, department: "", imageUrl: undefined, imageCaption: undefined, events: [],
+        area: "", latitude: null, longitude: null, locationAccuracyMeters: null, assignedTo: null, assignedDepartment: null, department: "", imageUrl: undefined, imageCaption: undefined, events: [],
       };
       return {
         report: privacySafeReport,

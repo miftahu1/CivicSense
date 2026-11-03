@@ -12,20 +12,76 @@ import { categoryLabel, tr } from "@/lib/i18n";
 
 const buildings = ["Student Hostel", "Central Library", "Academic Building", "Commerce Building", "Dining Hall", "Administration Building", "Health Centre", "Science Building", "Campus Grounds", "Other"];
 
+type LiveLocation = { latitude: number; longitude: number; accuracyMeters: number };
+
 export function ReportForm() {
   const { locale } = useWorkspace();
   const [mode, setMode] = useState<"normal" | "image">("normal");
+  const [liveLocation, setLiveLocation] = useState<LiveLocation | null>(null);
   return <>
     <div className="page-heading"><div><div className="section-kicker">{tr(locale, "Campus services · New report", "কেম্পাছ সেৱা · নতুন প্ৰতিবেদন")}</div><h1>{tr(locale, "What needs attention?", "কিহৰ প্ৰতি মনোযোগ দিব লাগে?")}</h1><p>{tr(locale, "Share what you noticed. A location and a few details help the right team respond.", "আপুনি লক্ষ্য কৰা কথাখিনি জনাওক। স্থান আৰু কেইটামান বিৱৰণে সঠিক দলক সঁহাৰি দিবলৈ সহায় কৰে।")}</p></div></div>
     <div className="report-mode-switch" role="group" aria-label={tr(locale, "Report creation mode", "প্ৰতিবেদন তৈয়াৰ কৰাৰ ধৰণ")}>
       <button type="button" className={mode === "normal" ? "active" : ""} onClick={() => setMode("normal")}><Languages size={15}/>{tr(locale, "Normal report", "সাধাৰণ প্ৰতিবেদন")}</button>
       <button type="button" className={mode === "image" ? "active" : ""} onClick={() => setMode("image")}><ImagePlus size={15}/>{tr(locale, "Image-first", "আলোকচিত্ৰৰ পৰা")}</button>
     </div>
-    {mode === "normal" ? <NormalReportForm/> : <ImageFirstReportForm/>}
+    {mode === "normal"
+      ? <NormalReportForm liveLocation={liveLocation} onLiveLocationChange={setLiveLocation}/>
+      : <ImageFirstReportForm liveLocation={liveLocation} onLiveLocationChange={setLiveLocation}/>}
   </>;
 }
 
-function NormalReportForm() {
+function LiveLocationControl({ value, onChange, locale }: { value: LiveLocation | null; onChange: (location: LiveLocation | null) => void; locale: "en" | "as" }) {
+  const [locating, setLocating] = useState(false);
+  const [error, setError] = useState("");
+
+  function requestLocation() {
+    setError("");
+    if (!navigator.geolocation) {
+      setError(tr(locale, "Location is unavailable here. Use a supported browser on HTTPS or localhost.", "ইয়াত স্থানৰ সুবিধা উপলব্ধ নহয়। HTTPS বা localhost-ত সমৰ্থিত ব্ৰাউজাৰ ব্যৱহাৰ কৰক।"));
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        if (!Number.isFinite(coords.latitude) || !Number.isFinite(coords.longitude) || !Number.isFinite(coords.accuracy)) {
+          setError(tr(locale, "Your browser returned an invalid location. You can still submit without a live pin.", "ব্ৰাউজাৰে ভুল স্থান ঘূৰাই দিলে। লাইভ পিন নোহোৱাকৈও দাখিল কৰিব পাৰে।"));
+        } else {
+          onChange({ latitude: coords.latitude, longitude: coords.longitude, accuracyMeters: coords.accuracy });
+          setError("");
+        }
+        setLocating(false);
+      },
+      (failure) => {
+        const message = failure.code === failure.PERMISSION_DENIED
+          ? tr(locale, "Location permission was denied. Allow it in your browser settings to add a pin.", "স্থানৰ অনুমতি দিয়া নহ’ল। পিন যোগ কৰিবলৈ ব্ৰাউজাৰৰ ছেটিংছত অনুমতি দিয়ক।")
+          : failure.code === failure.POSITION_UNAVAILABLE
+            ? tr(locale, "Your current location is unavailable. Check your device’s location services and try again.", "আপোনাৰ বৰ্তমানৰ স্থান পোৱা নগ’ল। ডিভাইচৰ location services পৰীক্ষা কৰি পুনৰ চেষ্টা কৰক।")
+            : tr(locale, "The location request timed out. Try again; you can still submit without a pin.", "স্থান বিচৰাৰ সময় শেষ হ’ল। পুনৰ চেষ্টা কৰক; পিন নোহোৱাকৈও দাখিল কৰিব পাৰে।");
+        setError(message);
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, maximumAge: 15_000, timeout: 20_000 },
+    );
+  }
+
+  return <div className="live-location-control">
+    <div className="live-location-row">
+      <button type="button" className="button button-outline button-small" onClick={requestLocation} disabled={locating}>
+        <MapPin size={14}/>{locating
+          ? tr(locale, "Getting your location…", "আপোনাৰ স্থান লোৱা হৈছে…")
+          : value
+            ? tr(locale, "Update live location", "লাইভ স্থান আপডেট কৰক")
+            : tr(locale, "Use my current location", "মোৰ বৰ্তমানৰ স্থান ব্যৱহাৰ কৰক")}
+      </button>
+      {value && <span className="live-location-attached"><Check size={13}/>{tr(locale, "Pin added · ±" + Math.round(value.accuracyMeters) + " m accuracy", "পিন যোগ হ’ল · প্ৰায় ±" + Math.round(value.accuracyMeters) + " মিটাৰ সঠিকতা")}</span>}
+      {value && <button type="button" className="live-location-remove" onClick={() => { onChange(null); setError(""); }}>{tr(locale, "Remove pin", "পিন আঁতৰাওক")}</button>}
+    </div>
+    <span className="field-hint">{tr(locale, "Optional. Your browser asks permission; this adds one location pin and does not track you.", "ইচ্ছা কৰিলে ব্যৱহাৰ কৰক। ব্ৰাউজাৰে অনুমতি বিচাৰিব; ইয়াত কেৱল এটা স্থান পিন যোগ হয়, আপোনাক অনুসৰণ কৰা নহয়।")}</span>
+    {error && <span className="live-location-error" role="alert">{error}</span>}
+  </div>;
+}
+
+function NormalReportForm({ liveLocation, onLiveLocationChange }: { liveLocation: LiveLocation | null; onLiveLocationChange: (location: LiveLocation | null) => void }) {
   const router = useRouter();
   const { submitReport, isDemo, locale } = useWorkspace();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -61,7 +117,7 @@ function NormalReportForm() {
     setSubmitStage(0);
     setBusy(true);
     try {
-      const report = await submitReport({ originalText: text, building, area, category: category ? category as Report["category"] : undefined, publicOptOut, image });
+      const report = await submitReport({ originalText: text, building, area, category: category ? category as Report["category"] : undefined, publicOptOut, liveLocation: liveLocation || undefined, image });
       toast.success(tr(locale, "Your report has been saved.", "আপোনাৰ প্ৰতিবেদন সংৰক্ষণ কৰা হ’ল।")); router.push(`/app/reports/${report.id}`);
     } catch (caught) { setError(caught instanceof Error ? caught.message : tr(locale, "We couldn't save your report. Please try again.", "প্ৰতিবেদন সংৰক্ষণ কৰিব পৰা নগ’ল। পুনৰ চেষ্টা কৰক।")); }
     finally { setBusy(false); }
@@ -73,6 +129,7 @@ function NormalReportForm() {
     <div className="field" style={{marginTop:20}}><label>{tr(locale,"Photograph","আলোকচিত্ৰ")} <span style={{fontWeight:400,color:"#8c928a"}}>· {tr(locale,"optional","ইচ্ছা কৰিলে")}</span></label><div className={`dropzone ${dragging?"dragging":""}`} onDragEnter={(event) => {event.preventDefault();setDragging(true);}} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragging(false)} onDrop={(event) => {event.preventDefault();setDragging(false);takeFile(event.dataTransfer.files[0]);}}><input ref={fileInput} aria-label={tr(locale,"Choose a photograph","আলোকচিত্ৰ বাছক")} type="file" accept="image/jpeg,image/png,image/webp,image/heic" capture="environment" onChange={(event) => takeFile(event.target.files?.[0])}/><div><UploadCloud size={20} className="dropzone-icon"/><strong>{tr(locale,"Drop a photo here, or tap to choose","আলোকচিত্ৰ ইয়ালৈ টানি আনক বা বাছিবলৈ টিপক")}</strong><span>{tr(locale,"JPEG, PNG, WebP or HEIC · up to 15 MB · photos stay private","JPEG, PNG, WebP বা HEIC · সৰ্বাধিক ১৫ MB · আলোকচিত্ৰ ব্যক্তিগতভাৱে সংৰক্ষিত হয়")}</span></div></div>{preview && <div className="image-preview"><Image src={preview} alt={tr(locale,"Preview of the selected campus issue","বাছনি কৰা কেম্পাছ সমস্যাৰ আলোকচিত্ৰৰ পূৰ্বদৃশ্য")} width={440} height={330} unoptimized/><button type="button" className="remove-image" aria-label={tr(locale,"Remove photo","আলোকচিত্ৰ আঁতৰাওক")} onClick={removeFile}><X size={14}/></button></div>}</div>
     <div className="form-section-title" style={{marginTop:30}}><span className="section-number">2</span><div><h2>{tr(locale,"Place it on the map","স্থান বাছনি কৰক")}</h2><p>{tr(locale,"Choose a building and add a room, floor, or nearby landmark.","ভৱন বাছি কোঠা, মহলা বা ওচৰৰ চিনাকি স্থান উল্লেখ কৰক।")}</p></div></div>
     <div className="location-grid"><div className="field"><label htmlFor="building">{tr(locale,"Building or campus area","ভৱন বা কেম্পাছৰ ঠাই")}</label><select id="building" value={building} onChange={(event) => setBuilding(event.target.value)} required><option value="">{tr(locale,"Choose a location","স্থান বাছক")}</option>{buildings.map((item) => <option key={item}>{item}</option>)}</select></div><div className="field"><label htmlFor="area">{tr(locale,"Room, floor, or landmark","কোঠা, মহলা বা চিনাকি স্থান")}</label><input id="area" value={area} onChange={(event) => setArea(event.target.value)} maxLength={120} placeholder={tr(locale,"e.g. Third floor · north wing","যেনে: তৃতীয় মহলা · উত্তৰ অংশ")}/></div></div>
+    <LiveLocationControl value={liveLocation} onChange={onLiveLocationChange} locale={locale}/>
     <div className="form-section-title" style={{marginTop:8}}><span className="section-number">3</span><div><h2>{tr(locale,"Help us route it","সঠিক দললৈ পঠিয়াবলৈ সহায় কৰক")}</h2><p>{tr(locale,"Pick a category, or let the AI suggest one from your report.","শ্ৰেণী বাছক, অথবা প্ৰতিবেদনৰ পৰা এআইক পৰামৰ্শ দিবলৈ দিয়ক।")}</p></div></div>
     <div className="field"><label htmlFor="category">{tr(locale,"Issue category","সমস্যাৰ শ্ৰেণী")}</label><select id="category" value={category} onChange={(event) => setCategory(event.target.value)}><option value="">{tr(locale,"Suggest a category automatically","শ্ৰেণী স্বয়ংক্ৰিয়ভাৱে পৰামৰ্শ দিয়ক")}</option>{categories.map((item) => <option key={item} value={item}>{categoryLabel(item, locale)}</option>)}</select><span className="field-hint"><span className="brand-mark" aria-hidden="true"></span> {isDemo ? tr(locale,"Live analysis is available when Gemini is configured.","Gemini সংযোগ কৰিলে প্ৰকৃত এআই বিশ্লেষণ উপলব্ধ হ’ব।") : tr(locale,"CivicSense will compare the report and photograph to suggest a category and priority.","CivicSense-এ প্ৰতিবেদন আৰু আলোকচিত্ৰ পৰ্যালোচনা কৰি শ্ৰেণী আৰু অগ্ৰাধিকাৰ পৰামৰ্শ দিব।")}</span></div>
     <label className="public-optout-control"><input type="checkbox" checked={publicOptOut} onChange={(event) => setPublicOptOut(event.target.checked)}/><span><strong>{tr(locale,"Do not show this report publicly","এই প্ৰতিবেদন ৰাজহুৱাভাৱে নেদেখুৱাব")}</strong><small>{tr(locale,"If unchecked, its summary, category, location and status may appear on the public issues page when an administrator enables it. Your original wording, name and photo stay private.","চিহ্নিত নকৰিলে, প্ৰশাসকে ৰাজহুৱা সমস্যা পৃষ্ঠা চালু কৰিলে ইয়াৰ সাৰাংশ, শ্ৰেণী, স্থান আৰু স্থিতি দেখা যাব পাৰে। মূল বিৱৰণ, নাম আৰু আলোকচিত্ৰ ব্যক্তিগত থাকিব।")}</small></span></label>
@@ -89,7 +146,7 @@ type ImageDraftResponse = {
   priorityExplanation: string;
 };
 
-function ImageFirstReportForm() {
+function ImageFirstReportForm({ liveLocation, onLiveLocationChange }: { liveLocation: LiveLocation | null; onLiveLocationChange: (location: LiveLocation | null) => void }) {
   const router = useRouter();
   const { submitReport, locale } = useWorkspace();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -139,7 +196,7 @@ function ImageFirstReportForm() {
     if (description.trim().length < 10) { setError(tr(locale, "Add a little more detail so the campus team can understand the issue.", "কেম্পাছৰ দলে সমস্যাটো বুজিবলৈ অলপ বেছি বিৱৰণ দিয়ক।")); return; }
     setBusy(true); setStage(0);
     try {
-      const report = await submitReport({ originalText: description.trim(), building, area, category: category || draft.category, publicOptOut, image, imageDraftToken: draft.token });
+      const report = await submitReport({ originalText: description.trim(), building, area, category: category || draft.category, publicOptOut, liveLocation: liveLocation || undefined, image, imageDraftToken: draft.token });
       toast.success(tr(locale, "Your report has been submitted.", "আপোনাৰ প্ৰতিবেদন দাখিল কৰা হ’ল।")); router.push(`/app/reports/${report.id}`);
     } catch (caught) { setError(caught instanceof Error ? caught.message : tr(locale, "We couldn't save your report. Please try again.", "প্ৰতিবেদন সংৰক্ষণ কৰিব পৰা নগ’ল। পুনৰ চেষ্টা কৰক।")); }
     finally { setBusy(false); }
@@ -156,6 +213,7 @@ function ImageFirstReportForm() {
       <div className="field"><label>{tr(locale,"Photo of the issue","সমস্যাটোৰ আলোকচিত্ৰ")}</label><div className="dropzone"><input ref={fileInput} aria-label={tr(locale,"Choose a photograph","আলোকচিত্ৰ বাছক")} type="file" accept="image/jpeg,image/png,image/webp,image/heic" capture="environment" onChange={(event) => chooseImage(event.target.files?.[0])}/><div><UploadCloud size={20} className="dropzone-icon"/><strong>{tr(locale,"Drop a photo here, or tap to choose","আলোকচিত্ৰ ইয়ালৈ টানি আনক বা বাছিবলৈ টিপক")}</strong><span>{tr(locale,"JPEG, PNG, WebP or HEIC · up to 15 MB","JPEG, PNG, WebP বা HEIC · সৰ্বাধিক ১৫ MB")}</span></div></div>{preview && <div className="image-preview"><Image src={preview} alt={tr(locale,"Selected issue photo","বাছনি কৰা সমস্যাৰ আলোকচিত্ৰ")} width={600} height={400} unoptimized/><button type="button" className="remove-image" aria-label={tr(locale,"Remove photo","আলোকচিত্ৰ আঁতৰাওক")} onClick={removeImage}><X size={14}/></button></div>}</div>
       <div className="form-section-title" style={{marginTop:27}}><span className="section-number">2</span><div><h2>{tr(locale,"Where is it?","ই ক’ত হৈছে?")}</h2><p>{tr(locale,"A precise location helps the campus team find the issue.","সঠিক স্থানে কেম্পাছৰ দলক সমস্যাটো বিচাৰি উলিয়াবলৈ সহায় কৰে।")}</p></div></div>
       <div className="location-grid"><div className="field"><label htmlFor="image-building">{tr(locale,"Building or campus area","ভৱন বা কেম্পাছৰ ঠাই")}</label><select id="image-building" value={building} onChange={(event) => setBuilding(event.target.value)} required><option value="">{tr(locale,"Choose a location","স্থান বাছক")}</option>{buildings.map((item) => <option key={item}>{item}</option>)}</select></div><div className="field"><label htmlFor="image-area">{tr(locale,"Room, floor, or landmark","কোঠা, মহলা বা চিনাকি স্থান")}</label><input id="image-area" value={area} onChange={(event) => setArea(event.target.value)} maxLength={120} placeholder={tr(locale,"e.g. Third floor · north wing","যেনে: তৃতীয় মহলা · উত্তৰ অংশ")}/></div></div>
+      <LiveLocationControl value={liveLocation} onChange={onLiveLocationChange} locale={locale}/>
       {error && <p className="error-text" role="alert">{error}</p>}
       <div className="image-first-footer"><span className="field-hint"><LockKeyhole size={13}/>{tr(locale,"Your photo stays private and is only submitted after your confirmation.","আপোনাৰ আলোকচিত্ৰ ব্যক্তিগত থাকে আৰু নিশ্চিত কৰাৰ পিছতহে দাখিল হয়।")}</span><button className="button button-terracotta" disabled={busy}>{tr(locale,"Analyze photo", "আলোকচিত্ৰ বিশ্লেষণ কৰক")} <Sparkles size={14}/></button></div>
     </div><aside className="form-aside"><section className="aside-card"><div className="section-kicker">{tr(locale,"Image-first report","আলোকচিত্ৰৰ পৰা প্ৰতিবেদন")}</div><h3>{tr(locale,"Start with what you see.","আপুনি যি দেখিছে তাৰ পৰাই আৰম্ভ কৰক।")}</h3><p>{tr(locale,"AI drafts a clear description and recommends a category and priority. You choose what to submit.","AI-য়ে স্পষ্ট বিৱৰণ লিখি শ্ৰেণী আৰু অগ্ৰাধিকাৰ পৰামৰ্শ দিয়ে। কি দাখিল কৰিব সেয়া আপুনিহে বাছিব।")}</p><div className="aside-checklist"><div className="aside-check"><Check size={14}/>{tr(locale,"Review and edit the description","বিৱৰণ পৰ্যালোচনা আৰু সম্পাদনা কৰক")}</div><div className="aside-check"><Check size={14}/>{tr(locale,"Change the suggested category","পৰামৰ্শ দিয়া শ্ৰেণী সলনি কৰক")}</div><div className="aside-check"><Check size={14}/>{tr(locale,"Nothing is submitted before confirmation","নিশ্চিত কৰাৰ আগতে একো দাখিল নহয়")}</div></div></section></aside></form>
@@ -165,6 +223,7 @@ function ImageFirstReportForm() {
         <div className="field image-review-field"><label htmlFor="image-description">{tr(locale,"Issue description","সমস্যাৰ বিৱৰণ")}</label><textarea id="image-description" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={5000} required/><span className="field-hint">{tr(locale,"AI-generated from visible details. Edit it to add context the photo cannot show.","দেখা তথ্যৰ পৰা AI-য়ে তৈয়াৰ কৰিছে। আলোকচিত্ৰত নেদেখা প্ৰসংগ যোগ কৰিবলৈ সম্পাদনা কৰক।")}</span></div>
         <div className="field image-review-field"><label htmlFor="image-category">{tr(locale,"Suggested category","পৰামৰ্শ দিয়া শ্ৰেণী")}</label><select id="image-category" value={category} onChange={(event) => setCategory(event.target.value as Category)}>{categories.map((item) => <option key={item} value={item}>{categoryLabel(item, locale)}</option>)}</select></div>
         <div className="image-review-location"><MapPin size={14}/><span><strong>{building}</strong>{area ? ` · ${area}` : ""}</span></div>
+        <LiveLocationControl value={liveLocation} onChange={onLiveLocationChange} locale={locale}/>
         <label className="public-optout-control"><input type="checkbox" checked={publicOptOut} onChange={(event) => setPublicOptOut(event.target.checked)}/><span><strong>{tr(locale,"Do not show this report publicly","এই প্ৰতিবেদন ৰাজহুৱাভাৱে নেদেখুৱাব")}</strong><small>{tr(locale,"If unchecked, its summary, category, location and status may appear on the public issues page when enabled. Your original wording and photo stay private.","চিহ্নিত নকৰিলে, প্ৰশাসকে ৰাজহুৱা সমস্যা পৃষ্ঠা চালু কৰিলে ইয়াৰ সাৰাংশ, শ্ৰেণী, স্থান আৰু স্থিতি দেখা যাব পাৰে। মূল বিৱৰণ আৰু আলোকচিত্ৰ ব্যক্তিগত থাকিব।")}</small></span></label>
         {changed && <div className="image-edit-analysis-note"><Sparkles size={14}/>{tr(locale,"You changed the AI draft. CivicSense will analyze your final description and category before saving.","AI খচৰাত সলনি কৰিছে। সংৰক্ষণৰ আগতে CivicSense-এ চূড়ান্ত বিৱৰণ আৰু শ্ৰেণী বিশ্লেষণ কৰিব।")}</div>}
         {!changed && <div className="image-edit-analysis-note image-edit-analysis-note-ready"><Check size={14}/>{tr(locale,"No edits detected. We’ll reuse this analysis and won’t run report analysis again.","কোনো সলনি হোৱা নাই। এই বিশ্লেষণ পুনৰ ব্যৱহাৰ হ’ব আৰু প্ৰতিবেদন বিশ্লেষণ আকৌ নচলিব।")}</div>}

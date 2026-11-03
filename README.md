@@ -2,39 +2,71 @@
 
 **Campus problems understood. Actions made visible.**
 
-CivicSense is a production-backed bilingual campus issue platform for university communities. Students can report in Assamese, Romanised Assamese, English, or mixed language. Campus staff work reports assigned to their department; administrators manage the team, review staff completions, and confirm semantic report clusters. Report originals and private photo attachments remain attached to their source-language submission.
+CivicSense is a bilingual campus issue reporting and response platform. Students can report in English, Assamese, Romanised Assamese, or mixed language; campus staff work issues assigned to their departments; administrators coordinate work, review outcomes, and confirm issue clusters. Reports preserve the original wording while AI assists with translation, triage, and cross-language matching.
 
-There is no synthetic workspace or local-storage report fallback. Workspace routes require a valid Supabase session, and API routes enforce the stored profile role on the server.
+The app uses authenticated Supabase accounts and server-side role checks. There is no local-storage or synthetic-report fallback in the production workspace.
+
+## Product features
+
+- **Student workspace:** overview, report submission, report history, activity, and campus services.
+- **Two report flows:** a standard text-first form with an optional photo, or an image-first flow where Gemini drafts a description/category/priority for the reporter to review. The reporter confirms before anything is submitted; if they leave the AI description and category unchanged, the app reuses the image triage rather than repeating report analysis.
+- **Optional live location:** the reporter can ask the browser for a one-time GPS pin in either form. Permission is requested only after the user clicks. The app stores coordinates and the browser’s accuracy estimate with the report; it does not continuously track the user. The pin is available only in authorized report details and is excluded from public issues and related-report previews. Browser geolocation requires HTTPS or localhost.
+- **Bilingual AI triage:** Gemini detects the source language, keeps original text, and creates English and Assamese summaries with suggested category, priority, department, and explanation. Image analysis is a separate step from report analysis.
+- **Cross-language issue intelligence:** Gemini Embedding 2 vectors and Postgres/pgvector identify similar unresolved reports, including across English, Assamese, and Romanised Assamese. Administrators review suggestions and confirm clusters. Staff see confirmed unresolved clusters for their department; students see confirmed matches with privacy filtering.
+- **Staff workflow:** staff see their assigned department’s queue, update work state and notes, and send completed work to an administrator for review. Administrators approve completion or return the issue for more work.
+- **Administrator workspace:** issue desk and assignments, team/department access, cluster review, analytics, activity, abuse review, public-board controls, and AI diagnostics.
+- **Public issue board:** `/issues` is controlled by an administrator. When enabled, the public navigation link appears; when disabled, the board routes are unavailable. Reporters can opt out individual reports. Sensitive and synthetic reports are excluded. Public output uses a limited projection and never includes original wording, reporter identity, photos, or live coordinates.
+- **High-priority email alerts:** EmailJS can notify staff assigned to the corresponding department when a non-sensitive report is High or Urgent. The message includes an authenticated link to the exact report.
+- **Abuse controls:** request limits and review signals cover rapid submissions, repeated report text, and suspicious links paired with payment or credential requests. Administrators can investigate, restrict, and unblock accounts or IP fingerprints.
+- **Password recovery:** email-based reset flow at `/forgot-password` and `/reset-password`.
+- **Responsive bilingual interface:** English/Assamese UI, accessible report dialogs, responsive workspaces, and clear status timelines.
+
+## Technology
+
+- **Application:** Next.js 16 App Router, React 19, TypeScript 5.9.
+- **Authentication and data:** Supabase Auth, PostgreSQL, Row Level Security, Supabase Storage, and Postgres functions. Server routes use the service-role key only after checking the user session and role.
+- **AI:** Google Gemini through `@google/genai`; Gemini Embedding 2 with pgvector for similarity search; Zod schemas validate AI and request data.
+- **Email:** EmailJS server API for department alerts.
+- **UI:** CSS with Tailwind CSS 4 tooling, Geist and Noto Sans Bengali fonts, Lucide icons, Recharts, and Sonner notifications.
+- **Quality tools:** ESLint and TypeScript; `tsx` scripts for matching evaluation and local diagnostics.
 
 ## Local setup
 
 Requirements: Node.js 20.9 or newer and npm.
 
-1. Install dependencies with `npm install`.
-2. Copy `.env.example` to `.env.local` and set the project values.
-3. In the Supabase SQL Editor, apply every file in `supabase/migrations` in filename order. This creates the tables, indexes, private photo bucket, access policies, workflow states, report-submission limit function, and backfills profiles for accounts that already existed.
-4. In Supabase Auth, configure the local Site URL and callback URLs. Enable email confirmation and configure a deliverable SMTP sender for production.
-5. Run `npm run dev` and open `http://localhost:3000`.
+1. Install packages: `npm install`.
+2. Copy `.env.example` to `.env.local` and fill in the values. Keep server secrets out of `NEXT_PUBLIC_` variables and out of source control.
+3. For a fresh Supabase project, apply SQL files in `supabase/migrations` in filename order. For an existing project, apply only migrations that have not already been applied. The latest `202611030005_report_live_location.sql` adds optional coordinate fields.
+4. In Supabase Auth, configure the local Site URL and redirect URLs. For production, configure the production URL, email confirmation, and a deliverable SMTP sender.
+5. Start the app with `npm run dev`, then open `http://localhost:3000`.
 
 ## Environment variables
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL. |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Browser sign-in and cookie-backed session. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Server-only access for protected report workflows and private storage. |
-| `GEMINI_API_KEY` | Yes | Server-side bilingual analysis and embeddings. |
-| `GEMINI_MODEL` | No | Defaults to `gemini-3.6-flash`. |
-| `GEMINI_FALLBACK_MODEL` | No | Defaults to `gemini-3.5-flash-lite`; used for report or image generation if the primary Gemini model fails. |
-| `GEMINI_EMBEDDING_MODEL` | No | Defaults to `gemini-embedding-2`. |
-| `SIMILARITY_THRESHOLD` | No | Defaults to `0.82`; validate with native Assamese speakers before relying on matches. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Browser-safe Supabase publishable/anon key for session-based auth. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Server-only privileged Supabase access. Never expose it to the browser. |
+| `GEMINI_API_KEY` | Yes for AI | Server-side key for the primary Google account. |
+| `BACKUP_GEMINI_API_KEY` | Optional | Key for a second Google account. Admin diagnostics can select which account is preferred. |
+| `GEMINI_MODEL` | Optional | Primary model; defaults to `gemini-3.6-flash`. |
+| `GEMINI_FALLBACK_MODEL` | Optional | Same-account fallback; defaults to `gemini-3.5-flash-lite`. |
+| `GEMINI_EMBEDDING_MODEL` | Optional | Embedding model; defaults to `gemini-embedding-2`. |
+| `SIMILARITY_THRESHOLD` | Optional | Semantic match threshold; defaults to `0.82`. Tune against reviewed campus examples. |
+| `EMAILJS_SERVICE_ID` | Optional | EmailJS service used for department alerts. |
+| `EMAILJS_PUBLIC_KEY` | Optional | EmailJS account public key. |
+| `EMAILJS_PRIVATE_KEY` | Optional | Server-only EmailJS private key for sending from the backend. |
+| `EMAILJS_DEPARTMENT_ALERT_TEMPLATE_ID` | Optional | Dynamic EmailJS template for High/Urgent department alerts. |
+| `NEXT_PUBLIC_APP_URL` | Recommended | Canonical app URL used to build report links in email notifications. |
+| `ABUSE_IP_HASH_SECRET` | Optional | Stable server-only HMAC secret for abuse fingerprints; otherwise the service-role key is used. |
+| `CIVICSENSE_CLIENT_IP_HEADER` | Optional | Trusted proxy-injected client IP header if the hosting provider is not detected automatically. |
 
-Never expose `SUPABASE_SERVICE_ROLE_KEY` or `GEMINI_API_KEY` in a `NEXT_PUBLIC_` variable or client-side code. `.env.local` is ignored by Git; `.env.example` contains placeholders only.
+`.env.local` is ignored by Git; `.env.example` contains placeholders only. Never commit real API keys, passwords, or service-role credentials.
 
 ## Accounts and roles
 
-- New accounts register through `/signup` and are created as students by a database trigger. Existing authenticated accounts without a profile are safely provisioned as students on first sign-in; the profile backfill migration also handles those accounts. In production, confirm accounts through email before signing in.
-- Promote the first verified campus operations account to administrator in the Supabase SQL Editor. Replace the address with the exact verified account email and verify that one profile row was updated:
+- New registrations at `/signup` receive the student role. Existing authenticated users without a profile are safely provisioned as students.
+- Promote the first verified campus operations account in the Supabase SQL Editor. Replace the email with the exact verified account and check that one profile was updated:
 
   ```sql
   update public.profiles
@@ -46,38 +78,53 @@ Never expose `SUPABASE_SERVICE_ROLE_KEY` or `GEMINI_API_KEY` in a `NEXT_PUBLIC_`
   );
   ```
 
-- Administrators grant staff access and assign each staff account a department from **Team access**. Staff can update work assigned to their department and submit completion for an administrator decision. Only administrators can resolve reports or manage issue clusters.
-- Every API request verifies the Supabase session, then checks the current profile role and department on the server. The service key is never sent to the browser.
+- Administrators grant staff access and assign a campus department in **Team access**. Department assignment determines staff queue access and report routing.
+- Every authenticated API route verifies the Supabase session and stored role on the server. Students can access their own reports; staff can access reports assigned to their department; administrators can review campus reports. Public APIs expose only explicitly selected public fields.
 
-## AI analysis and matching
+## Report and AI workflow
 
-`POST /api/reports` validates and stores the original report before requesting AI analysis. Optional JPEG, PNG, WebP, and HEIC photos are stored in the private `report-attachments` bucket, with a maximum size of 15 MB. Report analysis produces a detected source language, bilingual summaries, suggested category and priority, department, confidence, and visible image description. Zod validates the structured response before it is saved.
+1. The report API validates the submission, checks abuse limits, and saves the original report first. Optional image attachments are validated and stored in the private `report-attachments` bucket (JPEG, PNG, WebP, or HEIC; up to 15 MB). Optional live coordinates are stored alongside the report after browser permission is granted.
+2. Gemini analyzes the text and optional photo, then stores source-language detection, bilingual summaries, suggested category/priority/department, confidence, and image description. AI calls are server-side and use structured output validation.
+3. Model calls try the selected API key’s primary model, then its fallback model. If both fail and a second key is configured, the app tries the primary model with the other account. Embeddings use the configured embedding model. Admin **AI diagnostics** reports the actual model used, timings, responses, and copied execution logs; the admin can switch the preferred API key.
+4. Semantic search checks unresolved non-synthetic issues. Similarity suggestions are not automatically merged: an administrator confirms cluster membership. Staff and students only see confirmed connections, with role-appropriate privacy filtering.
+5. Staff document their work and submit completion for administrator review. Only an administrator can resolve a report.
 
-Gemini Embedding 2 embeds the original report and campus location into a 768-dimensional vector. The database match function compares unresolved live reports and returns up to three suggestions. Administrators review suggestions before making a cluster. If Gemini is unavailable, the original report remains saved and an administrator can retry analysis. Users see a safe status message; provider and database details stay in server logs.
+AI output is a triage aid; campus staff make final decisions. Validate Assamese, especially native-script Assamese and Romanised Assamese, with fluent speakers before relying on classifications or similarity scores.
 
-Authenticated accounts are limited to 10 report submissions per rolling hour. The limit is enforced atomically in Postgres, not in process memory.
+## Abuse protection and privacy
 
-Six prepared matching inputs (three Assamese, including Romanised Assamese, and three English) live in `test-data/assamese-matching-cases.ts`. After configuring Gemini, `npm run eval:matching` prints the semantic scores for manual review. The threshold is experimental; the evaluation is not a substitute for native-speaker review.
+Authenticated accounts are limited to 10 reports per rolling hour and 4 per 10 minutes. Image draft analysis is limited to 5 requests per 10 minutes. A trusted network exceeding 60 report or image-analysis requests in 10 minutes can receive a 15-minute IP cooldown. Repeated content and suspicious solicitation create review signals; they are not automatic fraud verdicts. IPs are stored as HMAC fingerprints rather than readable addresses. Administrators can review signals, restrict accounts/IPs, add investigation notes, and lift restrictions.
 
-## Database, storage, and privacy
+For IP controls in production, requests must pass through a trusted proxy that supplies a verified client-IP header. Vercel, Cloudflare, and Netlify headers are recognized; configure `CIVICSENSE_CLIENT_IP_HEADER` only for a trusted host-provided header, never a client-controlled value. Set a stable random `ABUSE_IP_HASH_SECRET` in encrypted deployment settings if fingerprints should remain stable when rotating the Supabase service key.
 
-Migrations create profiles, reports, attachments, issue clusters, status events, and embeddings. They enable row-level security, a private photo bucket, and service-only database functions. Students see their own records, staff see work assigned to their department, and administrators can review all live reports. Records marked synthetic from an earlier walkthrough are excluded from production queues and semantic matching.
+Live location is optional and one-shot. The app asks the browser only after the user chooses **Use my current location**; it does not run a location watcher. Coordinates are available only on authorized report detail views and are not sent to Gemini or exposed to the public issue board.
 
-The migrations also add atomic report and image-analysis burst limits, abuse-signal and restriction audit tables, and server-only restriction checks. Account/IP restrictions require migration `202611030002_abuse_protection.sql` before deploying the corresponding code. Account bans also use Supabase Auth; the CivicSense API checks restrictions on every authenticated request so an already-issued access token cannot bypass an active block.
+## Useful commands
 
-The Abuse review page flags rapid bursts, repeated identical report text, and links combined with payment or credential requests. These are review signals, not automatic fraud verdicts. Accounts are throttled at 4 report submissions per 10 minutes (plus the existing 10 per hour cap); image draft analysis is limited to 5 requests per 10 minutes. A trusted IP exceeding 60 report or image-analysis requests in 10 minutes receives an automatic 15-minute IP cooldown. Administrators can review signals, add manual account/IP restrictions, record investigation notes, and unblock later. IPs are stored as HMAC fingerprints, not readable addresses. For IP controls to work in production, requests must come through a trusted proxy. Vercel, Cloudflare, and Netlify verified client-IP headers are recognized by default; set `CIVICSENSE_CLIENT_IP_HEADER` only if your host uses a different proxy-injected header. Do not point it at an untrusted client-controlled header. Set a stable random `ABUSE_IP_HASH_SECRET` in the host’s encrypted environment settings if you want IP fingerprints to remain stable when rotating the Supabase service key.
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Run the local Next.js development server. |
+| `npm run lint` | Run ESLint. |
+| `npm run typecheck` | Run TypeScript without emitting files. |
+| `npm run build` | Create a production build. |
+| `npm run start` | Serve the production build. |
+| `npm run eval:matching` | Evaluate the prepared semantic matching examples using `.env.local`. |
+| `npm run test:local` | Run the local API/AI diagnostic script using `.env.local`. |
 
-## Deploy
+## Main routes
 
-1. Add this repository to your Git provider and import it into Vercel (or another Node.js host that supports Next.js).
-2. Set all required environment variables in the hosting provider’s encrypted environment settings for the correct deployment environment.
-3. Apply the Supabase migrations in order and configure production Site URL, callback URLs, email confirmation, and SMTP.
-4. Promote the first verified administrator account using the SQL above, then grant staff access through **Team access**.
-5. Run `npm run lint`, `npm run typecheck`, and `npm run build`; deploy only after all required production environment variables and migrations are in place.
+- **Public:** `/`, `/how-it-works`, `/issues`, `/issues/[ticketNumber]`.
+- **Authentication:** `/login`, `/signup`, `/forgot-password`, `/reset-password`.
+- **Student workspace:** `/app`, `/app/new`, `/app/reports`, `/app/reports/[id]`, `/app/activity`, `/app/campus-services`.
+- **Staff workspace:** `/staff`, report submission, and authorized report details.
+- **Administrator workspace:** `/admin`, `/admin/issues`, `/admin/clusters`, `/admin/team`, `/admin/abuse`, `/admin/diagnostics`, `/admin/insights`, `/admin/activity`.
+- **API:** authenticated report, staff, and admin endpoints live under `/api`; public issue endpoints live under `/api/public/issues`.
 
-## Routes
+## Deployment
 
-- Student: `/app`, `/app/new`, `/app/reports`
-- Staff: `/staff`, plus report submission and personal reports
-- Administrator: `/admin`, `/admin/issues`, `/admin/clusters`, `/admin/team`, `/admin/abuse`
-- API: report submission and retrieval, authenticated profile recovery, staff queue and updates, administrator metrics, assignments, analysis retry, team access, and issue clusters under `/api`.
+1. Import the repository into a Node.js host that supports Next.js (for example, Vercel).
+2. Configure the environment variables in the host’s encrypted settings for the correct environment.
+3. Apply only unapplied Supabase migrations in filename order, including the latest migration before enabling live location.
+4. Configure Supabase Auth URLs, email confirmation, SMTP, private storage, and database policies/functions from the migrations.
+5. Promote the first verified administrator, assign staff departments, and configure EmailJS templates if department alerts are wanted.
+6. Run lint, typecheck, and build before deploying.
