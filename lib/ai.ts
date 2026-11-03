@@ -8,6 +8,7 @@ import {
 import { imageReportDraftSchema, reportAnalysisSchema } from "./schemas";
 import { campusDepartments } from "@/lib/departments";
 import type { Language } from "./types";
+import { createServiceClient } from "@/lib/supabase/server";
 
 const analysisSystemPrompt = `You are a civic issue tracking assistant for a university in Assam, India. Your role is to analyze student and staff reports, which may be in English, Assamese, or a mix of both (like "Romanised Assamese"). Your analysis must be concise, neutral, and directly relevant to the report. You will provide bilingual titles and summaries, and categorize the issue.
 
@@ -108,13 +109,15 @@ function errorSummary(error: unknown) {
 async function withModelFallback<T>(
   task: string,
   options: AiCallOptions,
-  request: (model: string, callOptions: AiCallOptions) => Promise<T>,
+  request: (model: string, callOptions: AiCallOptions, apiKey: string) => Promise<T>,
 ): Promise<T> {
   const primaryModel = options.model || process.env.GEMINI_MODEL || "gemini-3.6-flash";
   const fallbackModel = options.fallbackModel || process.env.GEMINI_FALLBACK_MODEL || "gemini-3.5-flash-lite";
+  const keys = await getGeminiKeyOrder();
+  const run = (model: string, callOptions: AiCallOptions, apiKey: string) => request(model, callOptions, apiKey);
 
   try {
-    const result = await request(primaryModel, options);
+    const result = await run(primaryModel, options, keys[0]);
     options.onModelUsed?.(primaryModel);
     return result;
   } catch (primaryError) {
@@ -136,7 +139,7 @@ async function withModelFallback<T>(
         timeoutMs: Math.min(options.timeoutMs ?? 30_000, 30_000),
         attempts: 1,
       };
-      const result = await request(fallbackModel, fallbackOptions);
+      const result = await run(fallbackModel, fallbackOptions, keys[0]);
       options.onModelUsed?.(fallbackModel);
       console.info("Gemini fallback model succeeded", {
         task,
@@ -154,30 +157,60 @@ async function withModelFallback<T>(
         fallbackError: errorSummary(fallbackError),
         fallbackDurationMs: Date.now() - fallbackStartedAt,
       });
+      if (keys[1]) {
+        try {
+          const crossAccountStartedAt = Date.now();
+          const result = await run(primaryModel, { ...options, timeoutMs: Math.min(options.timeoutMs ?? 30_000, 30_000), attempts: 1 }, keys[1]);
+          options.onModelUsed?.(primaryModel);
+          console.info("Gemini secondary account succeeded", { task, model: primaryModel, durationMs: Date.now() - crossAccountStartedAt });
+          return result;
+        } catch (secondaryError) {
+          console.error("Gemini model attempts failed across both accounts", { task, primaryModel, fallbackModel, primaryError: errorSummary(primaryError), fallbackError: errorSummary(fallbackError), secondaryError: errorSummary(secondaryError) });
+          throw secondaryError;
+        }
+      }
       throw fallbackError;
     }
   }
 }
 
-let client: GoogleGenAI | undefined;
+const clients = new Map<string, GoogleGenAI>();
 
-function getClient() {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured on the server.");
+export async function getGeminiKeyConfiguration() {
+  const primary = process.env.GEMINI_API_KEY;
+  const backup = process.env.BACKUP_GEMINI_API_KEY;
+  let selected: "primary" | "backup" = "primary";
+  if (backup) {
+    try {
+      const { data } = await createServiceClient().from("app_settings").select("setting_value").eq("setting_key", "gemini_key_slot").maybeSingle();
+      if (data?.setting_value === "backup") selected = "backup";
+    } catch (error) { console.warn("Could not read Gemini key selection; using primary key", error); }
+  }
+  return { selected, primaryConfigured: Boolean(primary), backupConfigured: Boolean(backup), apiKey: selected === "backup" ? backup || primary : primary };
+}
 
-  client ??= new GoogleGenAI({
-    apiKey,
-    httpOptions: {
-      timeout: 30_000,
-      retryOptions: { attempts: 2 },
-    },
-  });
+async function getGeminiKeyOrder() {
+  const config = await getGeminiKeyConfiguration();
+  const primary = process.env.GEMINI_API_KEY;
+  const backup = process.env.BACKUP_GEMINI_API_KEY;
+  const preferred = config.selected === "backup" ? backup : primary;
+  const secondary = config.selected === "backup" ? primary : backup;
+  if (!preferred) throw new Error(config.selected === "backup" ? "BACKUP_GEMINI_API_KEY is not configured on the server." : "GEMINI_API_KEY is not configured on the server.");
+  return secondary ? [preferred, secondary] : [preferred];
+}
+
+function getClient(apiKey: string) {
+  let client = clients.get(apiKey);
+  if (!client) {
+    client = new GoogleGenAI({ apiKey, httpOptions: { timeout: 30_000, retryOptions: { attempts: 2 } } });
+    clients.set(apiKey, client);
+  }
   return client;
 }
 
 export async function analyzeImage(image: { mimeType: string; bytes: Buffer }, options: AiCallOptions = {}): Promise<string> {
-  return withModelFallback("image analysis", options, async (model, callOptions) => {
-    const result = await getClient().models.generateContent({
+  return withModelFallback("image analysis", options, async (model, callOptions, apiKey) => {
+    const result = await getClient(apiKey).models.generateContent({
       model,
       contents: [{
         role: "user",
@@ -203,8 +236,8 @@ export async function analyzeImage(image: { mimeType: string; bytes: Buffer }, o
 }
 
 export async function analyzeImageReportDraft(image: { mimeType: string; bytes: Buffer }, location: { building: string; area: string }, options: AiCallOptions = {}) {
-  return withModelFallback("image report draft", options, async (model, callOptions) => {
-    const result = await getClient().models.generateContent({
+  return withModelFallback("image report draft", options, async (model, callOptions, apiKey) => {
+    const result = await getClient(apiKey).models.generateContent({
       model,
       contents: [{ role: "user", parts: [
         { text: `Inspect this campus issue photo. Write a concise factual issue description based only on visible evidence, then suggest a category and priority. The campus location is ${location.building}${location.area ? `, ${location.area}` : ""}. Do not translate, summarize in another language, or infer facts that are not visible.` },
@@ -231,8 +264,8 @@ export async function analyzeReport(input: { text: string; language?: Language; 
     ? ` The reporter's language hint is ${input.language}, but it may be wrong; detect the source language from the report text and prioritize the text itself.`
     : " Detect the source language directly from the report text.";
   const userPrompt = `Analyze the following report from the ${input.building} campus building${input.area ? ` (area: ${input.area})` : ""}.${languageContext}${titleContext}${categoryContext}\n\n${input.text}`;
-  return withModelFallback("report analysis", options, async (model, callOptions) => {
-    const result = await getClient().models.generateContent({
+  return withModelFallback("report analysis", options, async (model, callOptions, apiKey) => {
+    const result = await getClient(apiKey).models.generateContent({
       model,
       contents: userPrompt,
       config: {
@@ -256,15 +289,19 @@ export async function analyzeReport(input: { text: string; language?: Language; 
 
 export async function embedReport(text: string, building: string, area: string, options: AiCallOptions = {}): Promise<number[]> {
   const content = `task: sentence similarity | query: Location: ${building}, ${area}\n\n${text}`;
-  const result = await getClient().models.embedContent({
-    model: options.model || process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-2",
-    contents: content,
-    config: {
-      outputDimensionality: 768,
-      ...(options.timeoutMs ? { httpOptions: { timeout: options.timeoutMs, retryOptions: { attempts: options.attempts ?? 2 } } } : {}),
-    },
-  });
-  const values = result.embeddings?.[0]?.values;
-  if (!values?.length) throw new Error("Gemini returned no report embedding.");
-  return values;
+  const keys = await getGeminiKeyOrder();
+  const model = options.model || process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-2";
+  let lastError: unknown;
+  for (const apiKey of keys) {
+    try {
+      const result = await getClient(apiKey).models.embedContent({
+        model, contents: content,
+        config: { outputDimensionality: 768, ...(options.timeoutMs ? { httpOptions: { timeout: options.timeoutMs, retryOptions: { attempts: options.attempts ?? 2 } } } : {}) },
+      });
+      const values = result.embeddings?.[0]?.values;
+      if (!values?.length) throw new Error("Gemini returned no report embedding.");
+      return values;
+    } catch (error) { lastError = error; }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Gemini embedding failed on both configured accounts.");
 }

@@ -37,6 +37,9 @@ export function AiDiagnostics() {
   const [model, setModel] = useState("gemini-3.6-flash");
   const [embeddingModel, setEmbeddingModel] = useState("gemini-embedding-2");
   const [geminiKeyConfigured, setGeminiKeyConfigured] = useState<boolean | null>(null);
+  const [keySlot, setKeySlot] = useState<"primary" | "backup">("primary");
+  const [backupKeyConfigured, setBackupKeyConfigured] = useState(false);
+  const [keySaving, setKeySaving] = useState(false);
   const [language, setLanguage] = useState<Language>("English");
   const [title, setTitle] = useState("");
   const [originalText, setOriginalText] = useState("Water has not reached the third floor of the hostel since this morning. Several students are affected.");
@@ -84,9 +87,26 @@ export function AiDiagnostics() {
         setModel(body.analysisModel);
         setEmbeddingModel(body.embeddingModel);
         setGeminiKeyConfigured(body.geminiKeyConfigured);
+        const keyResponse = await fetch("/api/admin/ai-key", { cache: "no-store" });
+        const keyBody = await keyResponse.json();
+        if (!keyResponse.ok) throw new Error(keyBody.error || "Could not load Gemini key settings.");
+        setKeySlot(keyBody.slot);
+        setBackupKeyConfigured(keyBody.backupConfigured);
       })
       .catch((caught) => setError(caught instanceof Error ? caught.message : "Could not load diagnostic defaults."));
   }, []);
+
+  async function changeKeySlot(slot: "primary" | "backup") {
+    setKeySaving(true);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/ai-key", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slot }) });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Could not change Gemini key.");
+      setKeySlot(slot);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Could not change Gemini key."); }
+    finally { setKeySaving(false); }
+  }
 
   useEffect(() => {
     if (!running) return;
@@ -220,6 +240,8 @@ export function AiDiagnostics() {
     </div>
 
     <div className="diagnostics-notice"><CircleAlert size={18}/><div><strong>{geminiKeyConfigured === false ? "GEMINI_API_KEY is missing on the server." : "Diagnostic calls use your configured Gemini API key."}</strong><span>They may incur API usage charges. No report, attachment, or embedding is saved. Similarity search reads the existing report index. The category field is logged as the selected hint; the current production analyzer can replace that category.</span></div></div>
+
+    <section className="panel diagnostics-form"><div className="diagnostics-panel-heading"><div><div className="section-kicker">Provider credentials</div><h2>Gemini API key</h2><p>Choose which Google account’s key powers new Gemini calls. Model fallback remains within the selected account.</p></div></div><div className="diagnostics-field-grid"><label>Active key<select value={keySlot} disabled={keySaving || !backupKeyConfigured} onChange={(event) => void changeKeySlot(event.target.value as "primary" | "backup")}><option value="primary">Primary Google account</option><option value="backup">Backup Google account</option></select><small>{backupKeyConfigured ? "Switches the key used for image analysis, report analysis and embeddings." : "Configure BACKUP_GEMINI_API_KEY on the server to enable the backup account."}</small></label></div></section>
 
     <div className="diagnostics-grid">
       <form className="panel diagnostics-form" onSubmit={(event) => void runDiagnostics(event)}>
