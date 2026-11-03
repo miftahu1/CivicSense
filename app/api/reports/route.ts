@@ -4,6 +4,7 @@ import { authErrorResponse, requireUser } from "@/lib/supabase/server";
 import { loadReports } from "@/lib/db-mappers";
 import { appendEvent, imageContentMatches, imageExtension, imageTypeAllowed, processSavedReport, processReportImage } from "@/lib/report-service";
 import { imageFingerprint, verifyImageReportDraft } from "@/lib/image-report-draft";
+import { notifyDepartmentForReport } from "@/lib/emailjs";
 import { consumeAbuseRateLimit, createAutomaticIpCooldown, hmacFingerprint, recordAbuseEvent } from "@/lib/abuse-protection";
 
 export async function GET(request: NextRequest) {
@@ -109,6 +110,8 @@ export async function POST(request: Request) {
     const { report, matches, analysisError } = await processSavedReport(admin, row.id, false, imageDraft ? {
       ...(imageDraftModified ? { categoryHint: parsed.data.category || undefined, categoryOverride: parsed.data.category || undefined } : {}),
     } : undefined);
+
+    if (report) after(() => notifyDepartmentForReport(admin, row.id));
 
     console.info("Report submission response ready", { reportId: row.id, durationMs: Date.now() - requestStartedAt });
     return Response.json({ report, matches, analysisError, attachmentSaved: !file || file instanceof File && file.size === 0 || hasImage }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
