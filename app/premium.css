@@ -221,3 +221,59 @@ h1,h2,h3{text-wrap:balance}p{text-wrap:pretty}
 .home-invitation{grid-template-columns:minmax(220px,.7fr) minmax(0,1.35fr) auto}
 .home-invitation::after{display:none}.home-invitation>p{padding-left:42px;border-left:1px solid #f1eee2a0}
 @media(max-width:900px){.home-invitation>p{padding-left:0;border-left:0}}
+
+/* CivicSense motion and workspace responsive polish */
+:root{scroll-padding-top:76px;--motion-distance:18px}
+.workspace{overflow-x:clip;background:radial-gradient(ellipse at 88% 0%,#e9e8dc88,transparent 38%),var(--paper)}
+.content{width:100%;}
+.panel,.summary-card,.form-panel,.detail-panel,.team-panel,.aside-card{transition:box-shadow .24s var(--ease),border-color .24s,transform .24s var(--ease)}
+.panel:hover{border-color:#d0d0c5;box-shadow:0 2px 3px #1e302b0c,0 18px 42px -24px #1e302b4d}
+.page-heading{position:relative}
+.page-heading h1{font-size:clamp(32px,3.1vw,44px)}
+.button:focus-visible,.side-link:focus-visible,.icon-button:focus-visible{outline:3px solid #d5b96b;outline-offset:3px}
+.issue-gallery-card,.home-glass,.home-invitation,.home-feature-strip{box-shadow:0 1px 0 #ffffff12 inset,0 24px 60px -40px #00130f}
+.home-report-card,.home-activity-card,.home-workflow-card{transition:transform .35s var(--ease),box-shadow .35s var(--ease)}
+@media (prefers-reduced-motion:no-preference){
+  @supports (animation-timeline:view()) {
+    .landing-top,.semantic-showcase,.issue-gallery-inner,.home-process-inner,.home-why-inner,.home-invitation,.new-landing-footer,
+    .content > .page-heading,.content > .metric-row,.content > .panel,.content > section,.dashboard-grid > *,
+    .staff-metrics,.staff-queue,.admin-overview-grid,.issue-desk-panel,.cluster-manager > * {
+      animation:cs-scroll-enter .7s var(--ease) both;
+      animation-timeline:view();
+      animation-range:entry 0% entry 24%;
+    }
+    .content > .metric-row{animation-range:entry 0% entry 18%}
+    @keyframes cs-scroll-enter{from{opacity:.3;transform:translateY(var(--motion-distance));filter:blur(2px)}to{opacity:1;transform:translateY(0);filter:blur(0)}}
+  }
+}
+@media(max-width:900px){
+  .content{padding-top:24px}
+  .dashboard-grid{grid-template-columns:minmax(0,1fr);gap:18px}
+  .dashboard-side{align-items:stretch}
+  .topbar{padding-inline:20px}
+  .metric-row-admin{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .metric-row-admin .metric:nth-child(3n+1){border-left:1px solid var(--line);padding-left:18px}
+  .metric-row-admin .metric:nth-child(2n+1){border-left:0;padding-left:0}
+}
+@media(max-width:600px){
+  .topbar{height:58px;min-width:0;gap:8px}
+  .topbar-actions{min-width:0;gap:4px}
+  .user-chip{min-width:0}
+  .content{padding:20px 14px 34px}
+  .page-heading h1{font-size:clamp(29px,8vw,36px)}
+  .page-heading p{font-size:14px}
+  .metric-row{border-bottom:0}
+  .metric-row .metric{min-height:90px;padding-top:14px}
+  .dashboard-side{display:grid;grid-template-columns:minmax(0,1fr)}
+  .filter-bar,.team-toolbar,.issue-toolbar{align-items:stretch;flex-direction:column}
+  .filter-bar>* ,.team-toolbar>* ,.issue-toolbar>*{width:100%;min-width:0}
+  .issue-table-wrap,.table-wrap{max-width:calc(100vw - 28px);overflow-x:auto;overscroll-behavior-inline:contain}
+  .issue-table,.data-table{min-width:680px}
+  .report-dialog{border-radius:13px}
+  .report-dialog-header{position:sticky;top:0;z-index:2}
+  .staff-metrics{grid-template-columns:1fr}
+  .staff-queue-tools{align-items:stretch;flex-direction:column}
+  .staff-queue-tools>*{width:100%;min-width:0}
+}
+@media(hover:none){.panel:hover{transform:none}.home-report-card,.home-activity-card,.home-workflow-card{transform:none!important}}
+@media(prefers-reduced-motion:reduce){.panel,.summary-card,.form-panel,.detail-panel,.team-panel,.aside-card{transition:none}}

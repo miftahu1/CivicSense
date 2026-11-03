@@ -103,7 +103,7 @@ begin
     window_started_at = case when bucket.window_started_at <= now() - make_interval(secs => p_window_seconds) then now() else bucket.window_started_at end,
     request_count = case when bucket.window_started_at <= now() - make_interval(secs => p_window_seconds) then 1 else bucket.request_count + 1 end,
     updated_at = now()
-  returning abuse_rate_limits.window_started_at, abuse_rate_limits.request_count into v_started_at, v_count;
+  returning bucket.window_started_at, bucket.request_count into v_started_at, v_count;
 
   if mod(v_count, 100) = 0 then
     delete from public.abuse_rate_limits where updated_at < now() - interval '7 days';
