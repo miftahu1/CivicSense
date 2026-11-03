@@ -63,7 +63,9 @@ Six prepared matching inputs (three Assamese, including Romanised Assamese, and 
 
 Migrations create profiles, reports, attachments, issue clusters, status events, and embeddings. They enable row-level security, a private photo bucket, and service-only database functions. Students see their own records, staff see work assigned to their department, and administrators can review all live reports. Records marked synthetic from an earlier walkthrough are excluded from production queues and semantic matching.
 
-The migrations also add an atomic submission throttle. Apply them to each Supabase environment before deploying code that depends on the functions or schema changes. Applying migrations to the production project remains an operator action.
+The migrations also add atomic report and image-analysis burst limits, abuse-signal and restriction audit tables, and server-only restriction checks. Account/IP restrictions require migration `202611030002_abuse_protection.sql` before deploying the corresponding code. Account bans also use Supabase Auth; the CivicSense API checks restrictions on every authenticated request so an already-issued access token cannot bypass an active block.
+
+The Abuse review page flags rapid bursts, repeated identical report text, and links combined with payment or credential requests. These are review signals, not automatic fraud verdicts. Accounts are throttled at 4 report submissions per 10 minutes (plus the existing 10 per hour cap); image draft analysis is limited to 5 requests per 10 minutes. A trusted IP exceeding 60 report or image-analysis requests in 10 minutes receives an automatic 15-minute IP cooldown. Administrators can review signals, add manual account/IP restrictions, record investigation notes, and unblock later. IPs are stored as HMAC fingerprints, not readable addresses. For IP controls to work in production, requests must come through a trusted proxy. Vercel, Cloudflare, and Netlify verified client-IP headers are recognized by default; set `CIVICSENSE_CLIENT_IP_HEADER` only if your host uses a different proxy-injected header. Do not point it at an untrusted client-controlled header. Set a stable random `ABUSE_IP_HASH_SECRET` in the host’s encrypted environment settings if you want IP fingerprints to remain stable when rotating the Supabase service key.
 
 ## Deploy
 
@@ -77,5 +79,5 @@ The migrations also add an atomic submission throttle. Apply them to each Supaba
 
 - Student: `/app`, `/app/new`, `/app/reports`
 - Staff: `/staff`, plus report submission and personal reports
-- Administrator: `/admin`, `/admin/issues`, `/admin/clusters`, `/admin/team`
+- Administrator: `/admin`, `/admin/issues`, `/admin/clusters`, `/admin/team`, `/admin/abuse`
 - API: report submission and retrieval, authenticated profile recovery, staff queue and updates, administrator metrics, assignments, analysis retry, team access, and issue clusters under `/api`.

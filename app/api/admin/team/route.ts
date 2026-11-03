@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { authErrorResponse, requireAdmin } from "@/lib/supabase/server";
+import { normalizeDepartment } from "@/lib/departments";
 
 const teamUpdateSchema = z.object({
   userId: z.string().uuid(),
@@ -12,7 +13,8 @@ export async function GET() {
     const { admin } = await requireAdmin();
     const { data, error } = await admin.from("profiles").select("id,full_name,role,department,created_at").order("created_at", { ascending: false }).limit(500);
     if (error) throw error;
-    return Response.json({ users: data || [] }, { headers: { "Cache-Control": "private, no-store" } });
+    const users = (data || []).map((member) => ({ ...member, department: member.role === "staff" ? normalizeDepartment(member.department) || member.department : null }));
+    return Response.json({ users }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { return authErrorResponse(error); }
 }
 
@@ -22,7 +24,7 @@ export async function PATCH(request: Request) {
     const parsed = teamUpdateSchema.safeParse(await request.json());
     if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message || "Review the team member details." }, { status: 400 });
     const input = parsed.data;
-    const department = input.role === "staff" ? input.department?.trim() : null;
+    const department = input.role === "staff" ? normalizeDepartment(input.department) : null;
     if (input.role === "staff" && (!department || department.length < 2)) {
       return Response.json({ error: "Assign a campus department before granting staff access." }, { status: 400 });
     }

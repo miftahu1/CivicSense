@@ -3,18 +3,17 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Activity, Bell, Building2, ChevronLeft, ChevronRight, CircleHelp, ClipboardList, FilePlus2, FolderKanban, Home, Layers3, LogOut, ShieldCheck, UsersRound } from "lucide-react";
+import { Activity, BarChart3, Bell, Building2, ChevronLeft, ChevronRight, CircleHelp, ClipboardList, FilePlus2, Home, Layers3, LogOut, ShieldAlert, UsersRound } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { LanguageToggle } from "@/components/language-toggle";
 import { useWorkspace } from "@/components/workspace-provider";
-import { ReportDetailDialog } from "@/components/report-detail-dialog";
 import { roleLabel, tr } from "@/lib/i18n";
 
 export function WorkspaceFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const previousPathname = useRef(pathname);
   const router = useRouter();
-  const { user, locale, isAuthenticated, signOut, reports, selectedReportId, closeReport, authReady } = useWorkspace();
+  const { user, locale, isAuthenticated, signOut, reports, closeReport, authReady } = useWorkspace();
   const [sidebarWidth, setSidebarWidth] = useState(244);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const resizingSidebar = useRef(false);
@@ -29,15 +28,15 @@ export function WorkspaceFrame({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!authReady) return;
     if (!isAuthenticated) { router.replace("/login"); return; }
-    if (user.role === "admin" && pathname.startsWith("/app")) router.replace("/admin");
+    const isReportDetailRoute = pathname.startsWith("/app/reports/") && pathname !== "/app/reports";
+    if (user.role === "admin" && pathname.startsWith("/app") && !isReportDetailRoute) router.replace("/admin");
     else if (user.role === "staff" && (pathname.startsWith("/admin") || pathname === "/app")) router.replace("/staff");
     else if (user.role === "student" && (pathname.startsWith("/admin") || pathname.startsWith("/staff"))) router.replace("/app");
   }, [authReady, isAuthenticated, pathname, router, user.role]);
   useEffect(() => {
     if (previousPathname.current === pathname) return;
     previousPathname.current = pathname;
-    if (selectedReportId) queueMicrotask(closeReport);
-  }, [pathname, selectedReportId, closeReport]);
+  }, [pathname]);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
@@ -59,6 +58,11 @@ export function WorkspaceFrame({ children }: { children: React.ReactNode }) {
     { href: "/admin/team", label: tr(locale, "Team access", "দলৰ প্ৰৱেশাধিকাৰ"), icon: UsersRound },
     { href: "/admin/diagnostics", label: tr(locale, "AI diagnostics", "এআই পৰীক্ষা"), icon: Activity },
   ];
+  const adminTools = [
+    { href: "/admin/activity", label: tr(locale, "Activity log", "কাৰ্যকলাপৰ লগ"), icon: Activity },
+    { href: "/admin/insights", label: tr(locale, "Response insights", "সঁহাৰিৰ অন্তৰ্দৃষ্টি"), icon: BarChart3 },
+    { href: "/admin/abuse", label: tr(locale, "Abuse review", "অপব্যৱহাৰৰ পৰ্যালোচনা"), icon: ShieldAlert },
+  ];
   const staffNav = [
     { href: "/staff", label: tr(locale, "Assigned work", "দায়িত্ব দিয়া কাম"), icon: ClipboardList },
     { href: "/app/new", label: tr(locale, "Report an issue", "সমস্যা জনাওক"), icon: FilePlus2 },
@@ -69,7 +73,7 @@ export function WorkspaceFrame({ children }: { children: React.ReactNode }) {
     { href: "/app/activity", label: tr(locale, "Recent activity", "শেহতীয়া কাৰ্যকলাপ"), icon: Activity },
   ];
   const nav = user.role === "admin" ? adminNav : user.role === "staff" ? staffNav : studentNav;
-  const pageTitle = [...studentNav, ...staffNav, ...adminNav, ...campusNav].find((item) => item.href === pathname)?.label ?? (pathname.includes("/reports/") ? tr(locale, "Report details", "প্ৰতিবেদনৰ বিৱৰণ") : pathname.startsWith("/staff") ? tr(locale, "Assigned work", "দায়িত্ব দিয়া কাম") : tr(locale, "New report", "নতুন প্ৰতিবেদন"));
+  const pageTitle = [...studentNav, ...staffNav, ...adminNav, ...adminTools, ...campusNav].find((item) => item.href === pathname)?.label ?? (pathname.includes("/reports/") ? tr(locale, "Report details", "প্ৰতিবেদনৰ বিৱৰণ") : pathname.startsWith("/staff") ? tr(locale, "Assigned work", "দায়িত্ব দিয়া কাম") : tr(locale, "New report", "নতুন প্ৰতিবেদন"));
   const unread = reports.some((report) => report.reporterId === user.id && report.events.length > 0);
   const mobileNav = nav;
 
@@ -84,7 +88,7 @@ export function WorkspaceFrame({ children }: { children: React.ReactNode }) {
         return <Link key={item.href} href={item.href} className={`side-link ${active ? "active" : ""}`} title={item.label} aria-current={active ? "page" : undefined}><Icon size={16}/><span>{item.label}</span></Link>;
       })}</div>
       {campusNav.length > 0 && <div className="sidebar-section"><div className="nav-label">{tr(locale, "Campus", "কেম্পাছ")}</div>{campusNav.map((item) => { const Icon = item.icon; const active = pathname === item.href; return <Link key={item.href} href={item.href} className={`side-link ${active ? "active" : ""}`} title={item.label} aria-current={active ? "page" : undefined}><Icon size={16}/><span>{item.label}</span></Link>; })}</div>}
-      {user.role === "admin" && <div className="sidebar-section"><div className="nav-label">{tr(locale, "Administration", "প্ৰশাসন")}</div><Link href="/admin/issues" className="side-link" title={tr(locale, "Review queue", "পৰ্যালোচনাৰ শাৰী")}><ShieldCheck size={16}/><span>{tr(locale, "Review queue", "পৰ্যালোচনাৰ শাৰী")}</span></Link><Link href="/admin/clusters" className="side-link" title={tr(locale, "Manage clusters", "ক্লাষ্টাৰ পৰিচালনা")}><FolderKanban size={16}/><span>{tr(locale, "Manage clusters", "ক্লাষ্টাৰ পৰিচালনা")}</span></Link></div>}
+      {user.role === "admin" && <div className="sidebar-section"><div className="nav-label">{tr(locale, "Administration", "প্ৰশাসন")}</div>{adminTools.map((item)=>{const Icon=item.icon;const active=pathname===item.href;return <Link key={item.href} href={item.href} className={`side-link ${active?"active":""}`} title={item.label} aria-current={active?"page":undefined}><Icon size={16}/><span>{item.label}</span></Link>;})}</div>}
       <div className="sidebar-bottom"><Link href="/" className="help-link"><CircleHelp size={15}/><span>{tr(locale, "About CivicSense", "CivicSense-ৰ বিষয়ে")}</span></Link><div className="demo-mode"><strong><span className="live-dot"/> {tr(locale, "Connected", "সংযুক্ত")}</strong>{tr(locale, "Signed in to your campus workspace.", "আপুনি কেম্পাছৰ ৱৰ্কস্পেচত ছাইন ইন কৰিছে।")}</div></div>
     </aside>
     <div className="sidebar-resize-handle" role="separator" aria-label={tr(locale, "Resize sidebar", "কাষৰ তালিকাৰ আকাৰ সলনি কৰক")} aria-orientation="vertical" aria-valuemin={72} aria-valuemax={380} aria-valuenow={sidebarWidth} tabIndex={0}
@@ -107,6 +111,5 @@ export function WorkspaceFrame({ children }: { children: React.ReactNode }) {
       <main className="content" id="main-content">{children}</main>
     </div>
     <nav className={`mobile-bottom-nav role-${user.role}`} aria-label={tr(locale, "Mobile navigation", "ম’বাইল নেভিগেচন")}>{mobileNav.map((item) => { const Icon = item.icon; return <Link key={item.href} href={item.href} className={pathname === item.href ? "active" : ""}><Icon/><span>{item.label}</span></Link>; })}</nav>
-    {selectedReportId && <ReportDetailDialog reportId={selectedReportId} onClose={closeReport}/>}
   </div>;
 }

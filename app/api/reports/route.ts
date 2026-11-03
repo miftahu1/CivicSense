@@ -4,6 +4,7 @@ import { authErrorResponse, requireUser } from "@/lib/supabase/server";
 import { loadReports } from "@/lib/db-mappers";
 import { appendEvent, imageContentMatches, imageExtension, imageTypeAllowed, processSavedReport, processReportImage } from "@/lib/report-service";
 import { imageFingerprint, verifyImageReportDraft } from "@/lib/image-report-draft";
+import { consumeAbuseRateLimit, createAutomaticIpCooldown, hmacFingerprint, recordAbuseEvent } from "@/lib/abuse-protection";
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: Request) {
   const requestStartedAt = Date.now();
   try {
-    const { admin, user, profile } = await requireUser();
+    const { admin, user, profile, ipHash } = await requireUser();
     const form = await request.formData();
     const draftToken = form.get("imageDraftToken");
     const imageDraft = typeof draftToken === "string" ? verifyImageReportDraft(draftToken) : null;
@@ -39,6 +40,31 @@ export async function POST(request: Request) {
     if (imageDraft && (!fileBytes || imageDraft.userId !== user.id || imageDraft.building !== parsed.data.building || imageDraft.area !== parsed.data.area || imageDraft.imageHash !== imageFingerprint(fileBytes))) {
       return Response.json({ error: "The photo or location changed after analysis. Analyze the current photo and location again." }, { status: 400 });
     }
+    const accountBurst = await consumeAbuseRateLimit(admin, `account:${user.id}:report`, 600, 4);
+    if (!accountBurst.allowed) {
+      await recordAbuseEvent(admin, { userId: user.id, ipHash, eventType: "report_burst_limited", riskScore: 2, details: { count: accountBurst.request_count, windowSeconds: 600 } }).catch((error) => console.error("Abuse event could not be recorded", error));
+      return Response.json({ error: "You have submitted reports quickly. Please wait a few minutes before submitting another.", code: "REPORT_RATE_LIMITED" }, { status: 429, headers: { "Retry-After": String(accountBurst.retry_after_seconds), "Cache-Control": "no-store" } });
+    }
+    if (ipHash) {
+      const ipBurst = await consumeAbuseRateLimit(admin, `ip:${ipHash}:report`, 600, 60);
+      if (!ipBurst.allowed) {
+        const autoBlocked = ipBurst.request_count === 61
+          ? await createAutomaticIpCooldown(admin, ipHash, "Automatic 15-minute network cooldown after exceeding 60 report submissions in 10 minutes.", 15).catch((error) => { console.error("Automatic IP cooldown could not be applied", error); return null; })
+          : null;
+        await recordAbuseEvent(admin, { userId: user.id, ipHash, eventType: autoBlocked ? "network_auto_blocked" : "network_burst_limited", riskScore: autoBlocked ? 8 : 4, details: { count: ipBurst.request_count, windowSeconds: 600, ...(autoBlocked ? { expiresAt: autoBlocked.expiresAt, restrictionId: autoBlocked.id } : {}) } }).catch((error) => console.error("Abuse event could not be recorded", error));
+        return Response.json({ error: "This network has submitted many reports recently. Please wait a few minutes and try again.", code: "NETWORK_RATE_LIMITED" }, { status: 429, headers: { "Retry-After": String(ipBurst.retry_after_seconds), "Cache-Control": "no-store" } });
+      }
+    }
+    let repeatedContentCount = 0;
+    const normalizedText = parsed.data.originalText.normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+    const contentFingerprint = hmacFingerprint(normalizedText);
+    const cutoff = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { data: recentReports, error: recentReportsError } = await admin.from("reports").select("original_text")
+      .eq("reporter_id", user.id).eq("is_synthetic", false).gte("created_at", cutoff).order("created_at", { ascending: false }).limit(30);
+    if (recentReportsError) console.warn("Recent report repetition check failed", { userId: user.id, error: recentReportsError });
+    else repeatedContentCount = (recentReports || []).filter((previous) => hmacFingerprint(previous.original_text.normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim()) === contentFingerprint).length;
+    const suspiciousSolicitation = /(?:https?:\/\/|www\.)/i.test(parsed.data.originalText)
+      && /\b(?:upi|payment|pay\s+now|transfer\s+money|password|one.time.password|\botp\b|\bpin\b|verify\s+(?:your\s+)?account|login\s+details)\b/i.test(parsed.data.originalText);
     const imageDraftModified = imageDraft ? parsed.data.originalText.trim() !== imageDraft.suggestions.description || parsed.data.category !== imageDraft.suggestions.category : false;
     const { data: canSubmit, error: limitError } = await admin.rpc("consume_report_submission_slot", { p_user_id: user.id, p_limit: 10 });
     if (limitError) throw limitError;
@@ -54,6 +80,8 @@ export async function POST(request: Request) {
     }).select("*").single();
     if (insertError || !row) { console.error("Report insert failed", insertError); return Response.json({ error: "The report could not be saved. Please try again." }, { status: 500 }); }
     console.info("Report row saved", { reportId: row.id, durationMs: Date.now() - requestStartedAt });
+    if (repeatedContentCount >= 2) await recordAbuseEvent(admin, { userId: user.id, ipHash, reportId: row.id, eventType: "repeated_report_content", riskScore: 4, details: { priorMatchesInLastHour: repeatedContentCount } }).catch((error) => console.error("Abuse event could not be recorded", error));
+    if (suspiciousSolicitation) await recordAbuseEvent(admin, { userId: user.id, ipHash, reportId: row.id, eventType: "suspicious_link_or_solicitation", riskScore: 5, details: { reason: "A link appears alongside a payment or credential request." } }).catch((error) => console.error("Abuse event could not be recorded", error));
     try { await appendEvent(admin, { reportId: row.id, actorId: user.id, actorName: profile.full_name, newStatus: "Under review", message: "Report received and queued for analysis." }); }
     catch (eventError) { console.error("Report event could not be recorded", eventError); }
 

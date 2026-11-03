@@ -1,5 +1,6 @@
 import type { IssueCluster, Report, ReportEvent, ReportStatus } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { normalizeDepartment } from "@/lib/departments";
 
 type DbReport = {
   id: string; ticket_number: string; reporter_id: string; reporter_name?: string; original_text: string;
@@ -26,15 +27,15 @@ export function mapReport(row: DbReport, options: { reporterName?: string; event
     titleEn: row.title_en || row.original_text.slice(0, 72), titleAs: row.title_as || "বিশ্লেষণৰ অপেক্ষাত",
     category: row.category, suggestedPriority: row.suggested_priority, confirmedPriority: row.confirmed_priority,
     priorityExplanation: row.priority_explanation || "Awaiting review.", building: row.location_building, area: row.location_area || "",
-    status: row.status, clusterId: row.cluster_id, assignedTo: row.assigned_to_name || row.assigned_to || null, assignedDepartment: row.assigned_department || null,
-    department: row.department || "Awaiting analysis", sensitive: Boolean(row.sensitive_flag), publicOptOut: Boolean(row.public_opt_out), analysisStatus: row.analysis_status, analysisConfidence: row.analysis_confidence ?? null, analysisError: row.analysis_error ?? null, isSynthetic: Boolean(row.is_synthetic),
+    status: row.status, clusterId: row.cluster_id, assignedTo: row.assigned_to_name || row.assigned_to || null, assignedDepartment: normalizeDepartment(row.assigned_department) || row.assigned_department || null,
+    department: normalizeDepartment(row.department) || row.department || "Awaiting analysis", sensitive: Boolean(row.sensitive_flag), publicOptOut: Boolean(row.public_opt_out), analysisStatus: row.analysis_status, analysisConfidence: row.analysis_confidence ?? null, analysisError: row.analysis_error ?? null, isSynthetic: Boolean(row.is_synthetic),
     createdAt: row.created_at, updatedAt: row.updated_at, imageUrl: options.imageUrl, imageCaption: options.imageCaption,
     events: options.events || [],
   };
 }
 
 export function mapCluster(row: { id:string; title:string; category:Report["category"]; location:string; status:ReportStatus; assigned_to?:string|null; assigned_to_name?:string|null; created_at:string }, reportIds: string[] = [], assignedDepartment: string | null = null, reports: Report[] = []): IssueCluster {
-  return { id: row.id, title: row.title, category: row.category, location: row.location, status: row.status, assignedTo: row.assigned_to_name || row.assigned_to || null, assignedDepartment, reportIds, reports, createdAt: row.created_at };
+  return { id: row.id, title: row.title, category: row.category, location: row.location, status: row.status, assignedTo: row.assigned_to_name || row.assigned_to || null, assignedDepartment: normalizeDepartment(assignedDepartment) || assignedDepartment, reportIds, reports, createdAt: row.created_at };
 }
 
 export async function loadReports(admin: SupabaseClient, rows: DbReport[]) {

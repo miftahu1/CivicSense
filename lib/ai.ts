@@ -6,6 +6,7 @@ import {
   Type,
 } from "@google/genai";
 import { imageReportDraftSchema, reportAnalysisSchema } from "./schemas";
+import { campusDepartments } from "@/lib/departments";
 import type { Language } from "./types";
 
 const analysisSystemPrompt = `You are a civic issue tracking assistant for a university in Assam, India. Your role is to analyze student and staff reports, which may be in English, Assamese, or a mix of both (like "Romanised Assamese"). Your analysis must be concise, neutral, and directly relevant to the report. You will provide bilingual titles and summaries, and categorize the issue.
@@ -17,7 +18,7 @@ Follow these rules for your JSON output:
 - category: choose the most fitting category from the provided schema.
 - priority: assign "Low", "Medium", "High", or "Urgent".
 - priorityExplanation: briefly explain the priority choice in one sentence.
-- department: suggest the campus department best equipped to handle the issue. Use a generic name if unsure (e.g., "Maintenance Department", "IT Services").
+- department: choose exactly one department from this campus directory: ${campusDepartments.join(", ")}. Use the closest match to the issue; never invent another department name.
 - sensitive: flag as true if the report contains sensitive personal, political, or security information; otherwise, false.
 - confidence: rate your analysis confidence from 0.0 to 1.0.
 - Do not include an imageDescription; no image is provided for this analysis.`;
@@ -54,7 +55,7 @@ const analysisResponseSchema = {
     titleAs: { type: Type.STRING },
     summaryEn: { type: Type.STRING },
     summaryAs: { type: Type.STRING },
-    department: { type: Type.STRING },
+    department: { type: Type.STRING, enum: [...campusDepartments] },
     confidence: { type: Type.NUMBER },
     sensitive: { type: Type.BOOLEAN },
   },

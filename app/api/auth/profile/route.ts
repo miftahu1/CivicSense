@@ -1,4 +1,6 @@
 import { authErrorResponse, createServiceClient, createSupabaseServerClient } from "@/lib/supabase/server";
+import { normalizeDepartment } from "@/lib/departments";
+import { findActiveAbuseRestriction, getRequestIpHash } from "@/lib/abuse-protection";
 
 export async function POST() {
   try {
@@ -16,7 +18,12 @@ export async function POST() {
       console.error("Signed-in profile lookup failed", lookupError);
       return Response.json({ error: "Campus profile storage is unavailable. Apply the Supabase migrations and try again." }, { status: 503 });
     }
-    if (existing) return Response.json({ profile: existing }, { headers: { "Cache-Control": "private, no-store" } });
+    if (existing) {
+      if (existing.role !== "admin" && await findActiveAbuseRestriction(admin, user.id, await getRequestIpHash())) {
+        return Response.json({ error: "This account or network is temporarily restricted. Contact a campus administrator if you believe this is a mistake.", code: "ACCOUNT_RESTRICTED" }, { status: 403 });
+      }
+      return Response.json({ profile: { ...existing, department: existing.role === "staff" ? normalizeDepartment(existing.department) || existing.department : null } }, { headers: { "Cache-Control": "private, no-store" } });
+    }
 
     const metadataName = typeof user.user_metadata?.full_name === "string" ? user.user_metadata.full_name.trim() : "";
     const emailName = user.email?.split("@")[0]?.trim() || "";
@@ -38,7 +45,10 @@ export async function POST() {
       .eq("id", user.id)
       .single();
     if (profileError || !profile) throw profileError || new Error("PROFILE_MISSING");
-    return Response.json({ profile }, { headers: { "Cache-Control": "private, no-store" } });
+    if (profile.role !== "admin" && await findActiveAbuseRestriction(admin, user.id, await getRequestIpHash())) {
+      return Response.json({ error: "This account or network is temporarily restricted. Contact a campus administrator if you believe this is a mistake.", code: "ACCOUNT_RESTRICTED" }, { status: 403 });
+    }
+    return Response.json({ profile: { ...profile, department: profile.role === "staff" ? normalizeDepartment(profile.department) || profile.department : null } }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return authErrorResponse(error);
   }

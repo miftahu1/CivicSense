@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { analyzeImage, analyzeReport, embedReport } from "@/lib/ai";
+import { normalizeDepartment } from "@/lib/departments";
 import { loadReports, mapReport } from "@/lib/db-mappers";
 import type { Category, Language, Report, SimilarReport } from "@/lib/types";
 
@@ -170,14 +171,22 @@ export async function processSavedReport(admin: SupabaseClient, reportId: string
     analysis_status: analysis ? "complete" : "failed",
     analysis_error: analysisError || (analysis ? null : "Analysis did not finish."),
   };
-  if (analysis) Object.assign(updates, {
+  if (analysis) {
+    const suggestedDepartment = normalizeDepartment(analysis.department);
+    // AI classification and operational assignment share the canonical department
+    // vocabulary. Staff can be added to the department later from Team access.
+    const routedDepartment = normalizeDepartment(row.assigned_department) || suggestedDepartment;
+    Object.assign(updates, {
     original_language: analysis.detectedLanguage, category: options.categoryOverride || analysis.category,
     suggested_priority: analysis.priority, priority_explanation: analysis.priorityExplanation,
     title_en: analysis.titleEn, title_as: analysis.titleAs,
     summary_en: analysis.summaryEn, summary_as: analysis.summaryAs,
-    department: analysis.department, sensitive_flag: analysis.sensitive,
+    department: suggestedDepartment || analysis.department, assigned_department: routedDepartment,
+    sensitive_flag: analysis.sensitive,
     analysis_confidence: analysis.confidence,
-  });
+    });
+    console.info("Report department routing resolved", { reportId, suggestedDepartment: suggestedDepartment || analysis.department, assignedDepartment: routedDepartment, matchedStaffDepartment: Boolean(routedDepartment) });
+  }
   const { error: updateError } = await admin.from("reports").update(updates).eq("id", reportId);
   if (updateError) throw updateError;
   

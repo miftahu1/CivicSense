@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { priorities, statuses } from "@/lib/types";
+import { campusDepartments } from "@/lib/departments";
 
 const categories = [
     "Infrastructure", "Utilities", "Safety and Security", "Transportation", 
@@ -16,7 +17,7 @@ export const reportAnalysisSchema = z.object({
   titleAs: z.string().trim().min(1).max(160),
   summaryEn: z.string().trim().min(3).max(500),
   summaryAs: z.string().trim().min(3).max(500),
-  department: z.string().min(2).max(100),
+  department: z.enum(campusDepartments),
   imageDescription: z.string().max(500).optional(),
   confidence: z.number().min(0).max(1),
   sensitive: z.boolean(),

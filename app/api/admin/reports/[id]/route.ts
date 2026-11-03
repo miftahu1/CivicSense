@@ -1,6 +1,7 @@
 import { updateReportSchema } from "@/lib/schemas";
 import { authErrorResponse, requireAdmin } from "@/lib/supabase/server";
 import { appendEvent } from "@/lib/report-service";
+import { normalizeDepartment } from "@/lib/departments";
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -12,11 +13,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (loadError) throw loadError;
     if (!before) return Response.json({ error: "Report not found." }, { status: 404 });
     const input = parsed.data;
-    if (input.assignedDepartment) {
-      const { data: matchingStaff, error: staffError } = await admin.from("profiles").select("id").eq("role", "staff").eq("department", input.assignedDepartment).limit(1);
-      if (staffError) throw staffError;
-      if (!matchingStaff?.length) return Response.json({ error: "Assign this report to a department that has a staff member in Team access." }, { status: 400 });
-    }
+    const assignedDepartment = input.assignedDepartment ? normalizeDepartment(input.assignedDepartment) : input.assignedDepartment;
+    if (input.assignedDepartment && !assignedDepartment) return Response.json({ error: "Choose one of the supported campus departments." }, { status: 400 });
     if (before.status === "Awaiting admin review" && input.status === "In progress" && !input.message?.trim()) {
       return Response.json({ error: "Add a review note before returning this report to staff." }, { status: 400 });
     }
@@ -25,11 +23,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (input.category) patch.category = input.category;
     if (input.confirmedPriority !== undefined) patch.confirmed_priority = input.confirmedPriority;
     if (input.assignedTo !== undefined) patch.assigned_to_name = input.assignedTo;
-    if (input.assignedDepartment !== undefined) patch.assigned_department = input.assignedDepartment;
+    if (input.assignedDepartment !== undefined) patch.assigned_department = assignedDepartment;
     const { error: updateError } = await admin.from("reports").update(patch).eq("id", id);
     if (updateError) throw updateError;
-    if (input.message || input.status && input.status !== before.status || input.category && input.category !== before.category || input.confirmedPriority !== undefined && input.confirmedPriority !== before.confirmed_priority || input.assignedTo !== undefined && input.assignedTo !== before.assigned_to_name || input.assignedDepartment !== undefined && input.assignedDepartment !== before.assigned_department) {
-      const changes = [input.status && input.status !== before.status ? `Status changed to ${input.status}.` : "", input.category && input.category !== before.category ? `Category set to ${input.category}.` : "", input.confirmedPriority !== undefined && input.confirmedPriority !== before.confirmed_priority ? `Priority confirmed as ${input.confirmedPriority || "the AI suggestion"}.` : "", input.assignedTo !== undefined && input.assignedTo !== before.assigned_to_name ? `Assigned to ${input.assignedTo || "no team"}.` : "", input.assignedDepartment !== undefined && input.assignedDepartment !== before.assigned_department ? `Department assigned to ${input.assignedDepartment || "no department"}.` : ""] .filter(Boolean).join(" ");
+    if (input.message || input.status && input.status !== before.status || input.category && input.category !== before.category || input.confirmedPriority !== undefined && input.confirmedPriority !== before.confirmed_priority || input.assignedTo !== undefined && input.assignedTo !== before.assigned_to_name || assignedDepartment !== undefined && assignedDepartment !== before.assigned_department) {
+      const changes = [input.status && input.status !== before.status ? `Status changed to ${input.status}.` : "", input.category && input.category !== before.category ? `Category set to ${input.category}.` : "", input.confirmedPriority !== undefined && input.confirmedPriority !== before.confirmed_priority ? `Priority confirmed as ${input.confirmedPriority || "the AI suggestion"}.` : "", input.assignedTo !== undefined && input.assignedTo !== before.assigned_to_name ? `Assigned to ${input.assignedTo || "no team"}.` : "", assignedDepartment !== undefined && assignedDepartment !== before.assigned_department ? `Department assigned to ${assignedDepartment || "no department"}.` : ""] .filter(Boolean).join(" ");
       await appendEvent(admin, { reportId: id, actorId: user.id, actorName: profile.full_name, oldStatus: input.status && input.status !== before.status ? before.status : null, newStatus: input.status && input.status !== before.status ? input.status : null, message: input.message || changes || "Report classification updated." });
     }
     return Response.json({ ok: true });

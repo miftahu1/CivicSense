@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { appendEvent } from "@/lib/report-service";
 import { authErrorResponse, requireStaff } from "@/lib/supabase/server";
+import { normalizeDepartment } from "@/lib/departments";
 
 const staffUpdateSchema = z.object({
   status: z.enum(["Investigating", "In progress", "Awaiting admin review"]),
@@ -16,9 +17,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     const { data: report, error: reportError } = await admin.from("reports").select("id,status,assigned_department")
       .eq("is_synthetic", false)
-      .eq("id", id).eq("assigned_department", profile.department).maybeSingle();
+      .eq("id", id).maybeSingle();
     if (reportError) throw reportError;
-    if (!report) return Response.json({ error: "This report is not assigned to your department." }, { status: 404 });
+    if (!report || normalizeDepartment(report.assigned_department) !== profile.department) return Response.json({ error: "This report is not assigned to your department." }, { status: 404 });
 
     const { status, message } = parsed.data;
     if (report.status === "Resolved" || report.status === "Awaiting admin review") {

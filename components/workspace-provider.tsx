@@ -1,10 +1,12 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { AppUser, IssueCluster, Report, UserRole } from "@/lib/types";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import type { InterfaceLanguage } from "@/lib/i18n";
+import { normalizeDepartment } from "@/lib/departments";
 
 const emptyUser = (preferredLanguage: InterfaceLanguage = "en"): AppUser => ({
   id: "",
@@ -48,6 +50,7 @@ async function readResponse<T>(response: Response): Promise<T> {
 }
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [locale, setLocaleState] = useState<InterfaceLanguage>("en");
   const [user, setUser] = useState<AppUser>(emptyUser);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -65,6 +68,19 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       setIsAuthenticated(false);
       return;
     }
+    if (response.status === 403) {
+      const body = await response.json().catch(() => ({})) as { code?: string };
+      if (body.code === "ACCOUNT_RESTRICTED") {
+        const supabase = createSupabaseBrowserClient();
+        if (supabase) await supabase.auth.signOut({ scope: "local" }).catch((error: unknown) => console.warn("Restricted session could not be cleared locally", error));
+        setIsAuthenticated(false);
+        setReports([]);
+        setClusters([]);
+        router.replace("/login?restricted=1");
+        return;
+      }
+      throw new Error("You do not have access to this operation.");
+    }
     const body = await readResponse<{ reports: Report[] }>(response);
     let nextReports = body.reports;
     if (user.role === "staff" && user.department) {
@@ -78,7 +94,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       const clusterBody = await readResponse<{ clusters: IssueCluster[] }>(clusterResponse);
       setClusters(clusterBody.clusters);
     } else setClusters([]);
-  }, [isAuthenticated, user.role, user.department]);
+  }, [isAuthenticated, user.role, user.department, router]);
 
   useEffect(() => {
     let active = true;
@@ -104,7 +120,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       const preferredLanguage = data.preferred_language === "as" ? "as" : "en";
-      setUser({ id: data.id, name: data.full_name, email: "", role: data.role as UserRole, department: data.department || null, preferredLanguage });
+      setUser({ id: data.id, name: data.full_name, email: "", role: data.role as UserRole, department: normalizeDepartment(data.department) || data.department || null, preferredLanguage });
       setLocaleState(preferredLanguage);
       setIsAuthenticated(true);
     };
@@ -165,8 +181,15 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     return () => { active = false; window.clearTimeout(timer); };
   }, [isAuthenticated, hasPendingAnalysis, refresh]);
 
-  const openReport = useCallback((id: string) => setSelectedReportId(id), []);
-  const closeReport = useCallback(() => setSelectedReportId(null), []);
+  const openReport = useCallback((id: string) => {
+    setSelectedReportId(null);
+    router.push(`/app/reports/${id}`);
+  }, [router]);
+  const closeReport = useCallback(() => {
+    setSelectedReportId(null);
+    const currentPath = window.location.pathname;
+    if (currentPath.startsWith("/app/reports/")) router.push("/app/reports");
+  }, [router]);
   const setLocale = useCallback(async (nextLocale: InterfaceLanguage) => {
     setLocaleState(nextLocale);
     try { window.localStorage.setItem("civicsense-locale", nextLocale); } catch { /* Language still changes for this session. */ }
@@ -202,7 +225,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       profile = recoveryBody.profile;
     }
     const preferredLanguage = profile.preferred_language === "as" ? "as" : "en";
-    setUser({ id: profile.id, name: profile.full_name, email: authData.user.email || "", role: profile.role as UserRole, department: profile.department || null, preferredLanguage });
+    setUser({ id: profile.id, name: profile.full_name, email: authData.user.email || "", role: profile.role as UserRole, department: normalizeDepartment(profile.department) || profile.department || null, preferredLanguage });
     setLocaleState(preferredLanguage);
     setIsAuthenticated(true);
     setAuthReady(true);

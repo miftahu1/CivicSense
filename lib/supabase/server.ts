@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { normalizeDepartment } from "@/lib/departments";
+import { findActiveAbuseRestriction, getRequestIpHash } from "@/lib/abuse-protection";
 
 export function hasSupabaseConfig() {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -40,7 +42,17 @@ export async function requireUser() {
   const admin = createServiceClient();
   const { data: profile, error: profileError } = await admin.from("profiles").select("id, full_name, role, preferred_language, department").eq("id", user.id).single();
   if (profileError || !profile) throw new Error("PROFILE_MISSING");
-  return { auth, admin, user, profile };
+  const ipHash = await getRequestIpHash();
+  if (profile.role !== "admin") {
+    let restriction: Awaited<ReturnType<typeof findActiveAbuseRestriction>>;
+    try { restriction = await findActiveAbuseRestriction(admin, user.id, ipHash); }
+    catch (error) {
+      console.error("Abuse restriction check failed", error);
+      throw new Error("ABUSE_PROTECTION_UNAVAILABLE");
+    }
+    if (restriction) throw new Error("ACCOUNT_RESTRICTED");
+  }
+  return { auth, admin, user, profile, ipHash };
 }
 
 export async function requireAdmin() {
@@ -52,8 +64,9 @@ export async function requireAdmin() {
 export async function requireStaff() {
   const context = await requireUser();
   if (context.profile.role !== "staff") throw new Error("FORBIDDEN");
-  if (!context.profile.department) throw new Error("STAFF_DEPARTMENT_REQUIRED");
-  return context;
+  const department = normalizeDepartment(context.profile.department);
+  if (!department) throw new Error("STAFF_DEPARTMENT_REQUIRED");
+  return { ...context, profile: { ...context.profile, department } };
 }
 
 export function authErrorResponse(error: unknown) {
@@ -61,6 +74,8 @@ export function authErrorResponse(error: unknown) {
   if (message === "UNAUTHORIZED") return Response.json({ error: "Please sign in to continue." }, { status: 401 });
   if (message === "FORBIDDEN") return Response.json({ error: "You do not have access to this operation." }, { status: 403 });
   if (message === "STAFF_DEPARTMENT_REQUIRED") return Response.json({ error: "Your staff account needs a campus department assignment." }, { status: 403 });
+  if (message === "ACCOUNT_RESTRICTED") return Response.json({ error: "This account or network is temporarily restricted. Contact a campus administrator if you believe this is a mistake.", code: "ACCOUNT_RESTRICTED" }, { status: 403 });
+  if (message === "ABUSE_PROTECTION_UNAVAILABLE") return Response.json({ error: "Security checks are temporarily unavailable. Apply the latest Supabase migration and try again." }, { status: 503 });
   if (message === "PROFILE_MISSING") return Response.json({ error: "Your account is not fully set up. Contact the campus administrator." }, { status: 403 });
   console.error("CivicSense API request failed", error);
   return Response.json({ error: "The request could not be completed. Please try again." }, { status: 500 });
