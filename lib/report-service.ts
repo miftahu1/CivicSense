@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { analyzeImage, analyzeReport, embedReport } from "@/lib/ai";
 import { normalizeDepartment } from "@/lib/departments";
+import { resolveDepartmentRoute } from "@/lib/department-routing";
 import { loadReports, mapReport } from "@/lib/db-mappers";
 import type { Category, Language, Report, SimilarReport } from "@/lib/types";
 
@@ -174,11 +175,21 @@ export async function processSavedReport(admin: SupabaseClient, reportId: string
   };
   if (analysis) {
     const suggestedDepartment = normalizeDepartment(analysis.department);
-    // AI classification and operational assignment share the canonical department
-    // vocabulary. Staff can be added to the department later from Team access.
-    const routedDepartment = normalizeDepartment(row.assigned_department) || suggestedDepartment;
+    const category = options.categoryOverride || analysis.category;
+    const [{ data: routingRows, error: routingError }, { data: staffRows, error: staffError }] = await Promise.all([
+      admin.from("category_department_routes").select("category,department"),
+      admin.from("profiles").select("department").eq("role", "staff"),
+    ]);
+    if (routingError) console.error("Category routing settings unavailable; using built-in defaults", routingError);
+    if (staffError) console.error("Could not verify staffed departments; sending category route to admin triage", staffError);
+    const routes = Object.fromEntries((routingRows || []).map((route) => [route.category, route.department])) as Partial<Record<Category, string | null>>;
+    const categoryRoute = resolveDepartmentRoute(category, `${row.original_text || ""} ${analysis.titleEn} ${analysis.summaryEn}`, routes);
+    const staffedDepartments = new Set((staffRows || []).map((member) => normalizeDepartment(member.department)).filter(Boolean));
+    const preservedAssignment = normalizeDepartment(row.assigned_department);
+    const hasStaffLookup = !staffError;
+    const routedDepartment = preservedAssignment || (categoryRoute && hasStaffLookup && staffedDepartments.has(categoryRoute) ? categoryRoute : null);
     Object.assign(updates, {
-    original_language: analysis.detectedLanguage, category: options.categoryOverride || analysis.category,
+    original_language: analysis.detectedLanguage, category,
     suggested_priority: analysis.priority, priority_explanation: analysis.priorityExplanation,
     title_en: analysis.titleEn, title_as: analysis.titleAs,
     summary_en: analysis.summaryEn, summary_as: analysis.summaryAs,
@@ -186,7 +197,7 @@ export async function processSavedReport(admin: SupabaseClient, reportId: string
     sensitive_flag: analysis.sensitive,
     analysis_confidence: analysis.confidence,
     });
-    console.info("Report department routing resolved", { reportId, suggestedDepartment: suggestedDepartment || analysis.department, assignedDepartment: routedDepartment, matchedStaffDepartment: Boolean(routedDepartment) });
+    console.info("Report department routing resolved", { reportId, category, aiDepartmentSuggestion: suggestedDepartment || analysis.department, rulesDepartment: categoryRoute, assignedDepartment: routedDepartment, routedToAdminTriage: !routedDepartment, matchedStaffDepartment: Boolean(routedDepartment && staffedDepartments.has(routedDepartment)) });
   }
   const { error: updateError } = await admin.from("reports").update(updates).eq("id", reportId);
   if (updateError) throw updateError;

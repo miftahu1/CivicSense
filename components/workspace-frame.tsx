@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Activity, BarChart3, Bell, Building2, ChevronLeft, ChevronRight, CircleHelp, ClipboardList, FilePlus2, Home, Layers3, LogOut, ShieldAlert, UsersRound } from "lucide-react";
+import { Activity, BarChart3, Bell, Building2, ChevronLeft, ChevronRight, CircleHelp, ClipboardList, FilePlus2, Home, Layers3, LogOut, ShieldAlert, UsersRound, Workflow } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { LanguageToggle } from "@/components/language-toggle";
 import { useWorkspace } from "@/components/workspace-provider";
@@ -56,6 +56,7 @@ export function WorkspaceFrame({ children }: { children: React.ReactNode }) {
     { href: "/admin/issues", label: tr(locale, "Issue desk", "অভিযোগৰ ডেস্ক"), icon: ClipboardList },
     { href: "/admin/clusters", label: tr(locale, "Issue clusters", "সমস্যাৰ ক্লাষ্টাৰ"), icon: Layers3 },
     { href: "/admin/team", label: tr(locale, "Team access", "দলৰ প্ৰৱেশাধিকাৰ"), icon: UsersRound },
+    { href: "/admin/routing", label: tr(locale, "Department routing", "বিভাগলৈ ৰাউটিং"), icon: Workflow },
     { href: "/admin/diagnostics", label: tr(locale, "AI diagnostics", "এআই পৰীক্ষা"), icon: Activity },
   ];
   const adminTools = [

@@ -6,6 +6,8 @@ export const campusDepartments = [
   "Sanitation & Waste",
   "Student Housing",
   "Health Services",
+  "Campus Security",
+  "Transport & Parking",
 ] as const;
 
 export type CampusDepartment = (typeof campusDepartments)[number];
@@ -43,6 +45,11 @@ const aliases: Record<string, CampusDepartment> = {
   healthcentre: "Health Services",
   healthcenter: "Health Services",
   medicalservices: "Health Services",
+  security: "Campus Security",
+  campussecurity: "Campus Security",
+  transport: "Transport & Parking",
+  transportation: "Transport & Parking",
+  parking: "Transport & Parking",
 };
 
 function key(value: string) {
