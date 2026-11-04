@@ -42,7 +42,17 @@ export function IssueDesk() {
       return textMatch && (category==="All categories"||report.category===category) && (priority==="All priorities"||(report.confirmedPriority||report.suggestedPriority)===priority) && (status==="All statuses"||report.status===status) && (location==="All locations"||report.building===location) && (language==="All languages"||report.originalLanguage===language) && new Date(report.createdAt).valueOf()>=cutoff;
     });
     const multiplier=sortAsc?1:-1;
-    return result.sort((a,b)=>sortKey==="createdAt"?(a.createdAt.localeCompare(b.createdAt))*multiplier:String(a[sortKey]).localeCompare(String(b[sortKey]))*multiplier);
+    return result.sort((a,b)=>{
+      const statusGroup = Number(a.status === "Resolved") - Number(b.status === "Resolved");
+      if (statusGroup) return statusGroup;
+      const priorityRank: Record<Report["suggestedPriority"], number> = { Urgent: 0, High: 1, Medium: 2, Low: 3 };
+      const priorityOrder = priorityRank[a.confirmedPriority || a.suggestedPriority] - priorityRank[b.confirmedPriority || b.suggestedPriority];
+      if (priorityOrder) return priorityOrder;
+      const statusRank: Record<Report["status"], number> = { "Awaiting admin review": 0, "Under review": 1, Investigating: 2, "In progress": 3, Resolved: 4 };
+      const workflowOrder = statusRank[a.status] - statusRank[b.status];
+      if (workflowOrder) return workflowOrder;
+      return (sortKey === "createdAt" ? a.createdAt.localeCompare(b.createdAt) : String(a[sortKey]).localeCompare(String(b[sortKey]))) * multiplier;
+    });
   },[reports,search,category,priority,status,location,language,period,sortKey,sortAsc,filterNow]);
   const pageCount = Math.max(1,Math.ceil(filtered.length/pageSize));
   const pageRows = filtered.slice((page-1)*pageSize,page*pageSize);
