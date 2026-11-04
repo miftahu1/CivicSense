@@ -14,6 +14,7 @@ The app uses authenticated Supabase accounts and server-side role checks. There 
 - **Bilingual AI triage:** Gemini detects the source language, keeps original text, and creates English and Assamese summaries with suggested category, priority, department, and explanation. Image analysis is a separate step from report analysis.
 - **Cross-language issue intelligence:** Gemini Embedding 2 vectors and Postgres/pgvector identify similar unresolved reports, including across English, Assamese, and Romanised Assamese. Administrators review suggestions and confirm clusters. Staff see confirmed unresolved clusters for their department; students see confirmed matches with privacy filtering.
 - **Staff workflow:** staff see their assigned department’s queue, update work state and notes, and send completed work to an administrator for review. Administrators approve completion or return the issue for more work.
+- **Unresolved issue map:** administrators see all active unresolved reports; staff see only reports assigned to their department. Optional GPS pins use priority-colored markers, while reports without a shared pin remain in the adjacent list without being assigned a guessed location.
 - **Administrator workspace:** issue desk and assignments, team/department access, cluster review, analytics, activity, abuse review, public-board controls, and AI diagnostics.
 - **Public issue board:** `/issues` is controlled by an administrator. When enabled, the public navigation link appears; when disabled, the board routes are unavailable. Reporters can opt out individual reports. Sensitive and synthetic reports are excluded. Public output uses a limited projection and never includes original wording, reporter identity, photos, or live coordinates.
 - **High-priority email alerts:** EmailJS can notify staff assigned to the corresponding department when a non-sensitive report is High or Urgent. The message includes an authenticated link to the exact report.
@@ -26,6 +27,7 @@ The app uses authenticated Supabase accounts and server-side role checks. There 
 - **Application:** Next.js 16 App Router, React 19, TypeScript 5.9.
 - **Authentication and data:** Supabase Auth, PostgreSQL, Row Level Security, Supabase Storage, and Postgres functions. Server routes use the service-role key only after checking the user session and role.
 - **AI:** Google Gemini through `@google/genai`; Gemini Embedding 2 with pgvector for similarity search; Zod schemas validate AI and request data.
+- **Maps:** OpenStreetMap raster tiles with custom report markers; live report coordinates are overlaid in the browser and do not go to the tile service.
 - **Email:** EmailJS server API for department alerts.
 - **UI:** CSS with Tailwind CSS 4 tooling, Geist and Noto Sans Bengali fonts, Lucide icons, Recharts, and Sonner notifications.
 - **Quality tools:** ESLint and TypeScript; `tsx` scripts for matching evaluation and local diagnostics.
@@ -58,6 +60,9 @@ Requirements: Node.js 20.9 or newer and npm.
 | `EMAILJS_PRIVATE_KEY` | Optional | Server-only EmailJS private key for sending from the backend. |
 | `EMAILJS_DEPARTMENT_ALERT_TEMPLATE_ID` | Optional | Dynamic EmailJS template for High/Urgent department alerts. |
 | `NEXT_PUBLIC_APP_URL` | Recommended | Canonical app URL used to build report links in email notifications. |
+| `NEXT_PUBLIC_MAP_TILE_URL` | Optional | Map tile URL template with `{z}`, `{x}`, and `{y}` placeholders; defaults to OpenStreetMap standard tiles. |
+| `NEXT_PUBLIC_MAP_ATTRIBUTION` | Optional | Visible map provider attribution; defaults to OpenStreetMap contributors. |
+| `NEXT_PUBLIC_MAP_ATTRIBUTION_URL` | Optional | Link for the map provider attribution. |
 | `ABUSE_IP_HASH_SECRET` | Optional | Stable server-only HMAC secret for abuse fingerprints; otherwise the service-role key is used. |
 | `CIVICSENSE_CLIENT_IP_HEADER` | Optional | Trusted proxy-injected client IP header if the hosting provider is not detected automatically. |
 
@@ -98,6 +103,8 @@ Authenticated accounts are limited to 10 reports per rolling hour and 4 per 10 m
 For IP controls in production, requests must pass through a trusted proxy that supplies a verified client-IP header. Vercel, Cloudflare, and Netlify headers are recognized; configure `CIVICSENSE_CLIENT_IP_HEADER` only for a trusted host-provided header, never a client-controlled value. Set a stable random `ABUSE_IP_HASH_SECRET` in encrypted deployment settings if fingerprints should remain stable when rotating the Supabase service key.
 
 Live location is optional and one-shot. The app asks the browser only after the user chooses **Use my current location**; it does not run a location watcher. Coordinates are available only on authorized report detail views and are not sent to Gemini or exposed to the public issue board.
+
+The map displays its tile provider’s attribution. The default OpenStreetMap raster tile service is community-funded and best-effort; configure a suitable hosted OSM tile provider for higher production traffic.
 
 ## Useful commands
 

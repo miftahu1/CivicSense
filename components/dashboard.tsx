@@ -10,6 +10,7 @@ import { categoryLabel, languageLabel, reportSummary, reportTitle, tr } from "@/
 import { formatDate, timeAgo } from "@/lib/format";
 import type { Language, Priority, Report } from "@/lib/types";
 import { PublicIssueBoardToggle } from "@/components/public-issue-board-toggle";
+import { CampusIssueMap } from "@/components/campus-issue-map";
 
 function PanelTitle({ title, href, action }: { title: string; href?: string; action?: string }) {
   const { locale } = useWorkspace();
@@ -63,6 +64,7 @@ export function Dashboard({ admin = false }: { admin?: boolean }) {
       <div className="metric"><div className="metric-label">{tr(locale,"Resolved","সমাধান কৰা হ’ল")}</div><div className="metric-value">{resolved}</div><div className="metric-note">{tr(locale,"Closed with an update","আপডেটসহ বন্ধ কৰা হৈছে")}</div></div>
       {admin && <Link href="/admin/issues" className="metric metric-action"><div className="metric-label">{tr(locale,"Awaiting admin review","প্ৰশাসকৰ পৰ্যালোচনাৰ অপেক্ষাত")}</div><div className="metric-value">{awaitingAdminReview}</div><div className="metric-note">{tr(locale,"Staff completion decisions","কৰ্মচাৰীৰ কামৰ সিদ্ধান্ত")}</div></Link>}
     </section>
+    {admin && <CampusIssueMap/>}
     <div className="dashboard-grid"><div className="dashboard-main">
       <section className="panel"><PanelTitle title={admin ? tr(locale,"Recent reports","শেহতীয়া প্ৰতিবেদন") : tr(locale,"Your recent reports","আপোনাৰ শেহতীয়া প্ৰতিবেদন")} href={admin ? "/admin/issues" : "/app/reports"}/>{recent.length ? <div className="report-list">{recent.map((report) => <ReportRow key={report.id} report={report} showReporter={admin}/>)}</div> : <div className="empty-state"><FilePlus2 size={22}/><h3>{tr(locale,"No reports here yet","ইয়াত এতিয়াও প্ৰতিবেদন নাই")}</h3><p>{tr(locale,"Share a campus concern and we’ll keep its status and updates together for you.","কেম্পাছৰ সমস্যা জনাওক; ইয়াত ইয়াৰ স্থিতি আৰু সকলো আপডেট একেলগে পাব।")}</p><Link className="button button-terracotta button-small" href="/app/new">{tr(locale,"Write your first report","প্ৰথম প্ৰতিবেদন দিয়ক")}</Link></div>}</section>
       <section className="panel" style={{ marginTop: 16 }}><PanelTitle title={admin ? tr(locale,"Reports by category","শ্ৰেণী অনুসৰি প্ৰতিবেদন") : tr(locale,"Updates on your reports","আপোনাৰ প্ৰতিবেদনৰ আপডেট")} href={admin ? "/admin/issues" : undefined}/>{admin ? categoryCounts.length ? <CategoryChart data={categoryCounts} language={locale}/> : <EmptyChart language={locale}/> : activities.length ? <div className="activity-list">{activities.map((activity) => <Activity key={activity.id} report={activity.report} message={activity.message} createdAt={activity.createdAt} language={locale}/>)}</div> : <div className="empty-state" style={{padding:28}}><CircleDot size={19}/><p>{tr(locale,"No status updates yet. When a campus team takes action, you’ll see it here.","এতিয়াও স্থিতিৰ আপডেট নাই। কেম্পাছৰ দলে পদক্ষেপ ল’লে ইয়াত দেখা পাব।")}</p></div>}</section>

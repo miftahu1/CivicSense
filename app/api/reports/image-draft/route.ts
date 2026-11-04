@@ -13,7 +13,14 @@ export async function POST(request: Request) {
     const file = form.get("image");
     const building = String(form.get("building") || "").trim();
     const area = String(form.get("area") || "").trim();
-    if (!building || building.length < 2 || building.length > 120) return Response.json({ error: "Choose a campus building or area." }, { status: 400 });
+    const latitudeValue = String(form.get("latitude") || "").trim();
+    const longitudeValue = String(form.get("longitude") || "").trim();
+    const hasLatitude = latitudeValue.length > 0;
+    const hasLongitude = longitudeValue.length > 0;
+    const latitude = hasLatitude ? Number(latitudeValue) : undefined;
+    const longitude = hasLongitude ? Number(longitudeValue) : undefined;
+    if (hasLatitude !== hasLongitude || (hasLatitude && (!Number.isFinite(latitude) || latitude! < -90 || latitude! > 90 || !Number.isFinite(longitude) || longitude! < -180 || longitude! > 180))) return Response.json({ error: "The live location pin is invalid. Add it again or choose a campus building." }, { status: 400 });
+    if ((!building && !hasLatitude) || (building.length > 0 && building.length < 2) || building.length > 120) return Response.json({ error: "Choose a campus building or add a live location pin." }, { status: 400 });
     if (area.length > 120) return Response.json({ error: "The location detail is too long." }, { status: 400 });
     if (!(file instanceof File) || !file.size) return Response.json({ error: "Upload a photo to continue." }, { status: 400 });
     if (file.size > 15 * 1024 * 1024) return Response.json({ error: "Images must be 15 MB or smaller." }, { status: 413 });
@@ -37,8 +44,9 @@ export async function POST(request: Request) {
       }
     }
 
-    const suggestions = await analyzeImageReportDraft({ mimeType: file.type, bytes }, { building, area });
-    const token = createImageReportDraft({ userId: user.id, building, area, imageHash: imageFingerprint(bytes), suggestions });
+    const reportBuilding = building || "GPS location";
+    const suggestions = await analyzeImageReportDraft({ mimeType: file.type, bytes }, { building: reportBuilding, area });
+    const token = createImageReportDraft({ userId: user.id, building: reportBuilding, area, imageHash: imageFingerprint(bytes), suggestions });
     return Response.json({ token, ...suggestions }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     if (error instanceof Error && error.message.includes("SUPABASE_SERVICE_ROLE_KEY")) {

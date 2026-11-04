@@ -37,17 +37,18 @@ export async function POST(request: Request) {
     };
     const parsed = reportInputSchema.safeParse({
       originalText: form.get("originalText"), language: form.get("language") || undefined,
-      building: form.get("building"), area: form.get("area") || "",
+      building: String(form.get("building") || ""), area: form.get("area") || "",
       latitude: optionalNumber("latitude"), longitude: optionalNumber("longitude"), accuracyMeters: optionalNumber("accuracyMeters"),
       publicOptOut: form.get("publicOptOut") === "true", ...(form.get("category") ? { category: form.get("category") } : {}),
     });
     if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message || "Review the report fields and try again." }, { status: 400 });
+    const reportBuilding = parsed.data.building || "GPS location";
     const file = form.get("image");
     if (file && file instanceof File && file.size > 15 * 1024 * 1024) return Response.json({ error: "Images must be 15 MB or smaller." }, { status: 413 });
     if (file && file instanceof File && file.size > 0 && !imageTypeAllowed(file.type)) return Response.json({ error: "Use a JPEG, PNG, WebP, or HEIC image." }, { status: 415 });
     const fileBytes = file instanceof File && file.size > 0 ? Buffer.from(await file.arrayBuffer()) : null;
     if (file instanceof File && fileBytes && !imageContentMatches(file.type, fileBytes)) return Response.json({ error: "The selected file does not match its image type." }, { status: 415 });
-    if (imageDraft && (!fileBytes || imageDraft.userId !== user.id || imageDraft.building !== parsed.data.building || imageDraft.area !== parsed.data.area || imageDraft.imageHash !== imageFingerprint(fileBytes))) {
+    if (imageDraft && (!fileBytes || imageDraft.userId !== user.id || imageDraft.building !== reportBuilding || imageDraft.area !== parsed.data.area || imageDraft.imageHash !== imageFingerprint(fileBytes))) {
       return Response.json({ error: "The photo or location changed after analysis. Analyze the current photo and location again." }, { status: 400 });
     }
     const accountBurst = await consumeAbuseRateLimit(admin, `account:${user.id}:report`, 600, 4);
@@ -82,7 +83,7 @@ export async function POST(request: Request) {
     // Persist the original before image processing or any Gemini request.
     const { data: row, error: insertError } = await admin.from("reports").insert({
       reporter_id: user.id, original_text: parsed.data.originalText, original_language: parsed.data.language,
-      category: parsed.data.category || imageDraft?.suggestions.category || "Other", location_building: parsed.data.building, location_area: parsed.data.area,
+      category: parsed.data.category || imageDraft?.suggestions.category || "Other", location_building: reportBuilding, location_area: parsed.data.area,
       location_latitude: parsed.data.latitude ?? null, location_longitude: parsed.data.longitude ?? null,
       location_accuracy_meters: parsed.data.accuracyMeters ?? null,
       public_opt_out: parsed.data.publicOptOut,

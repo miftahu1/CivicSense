@@ -42,7 +42,7 @@ export const updateReportSchema = z.object({
 export const reportInputSchema = z.object({
   originalText: z.string().trim().min(10).max(5000),
   language: z.enum(["English", "Assamese", "Romanised Assamese", "Mixed"]).optional().default("Mixed"),
-  building: z.string().trim().min(2).max(120),
+  building: z.string().trim().max(120).default(""),
   area: z.string().trim().max(120).default(""),
   latitude: z.number().finite().min(-90).max(90).optional(),
   longitude: z.number().finite().min(-180).max(180).optional(),
@@ -52,6 +52,9 @@ export const reportInputSchema = z.object({
 }).refine((input) => (input.latitude === undefined) === (input.longitude === undefined), {
   message: "Provide both coordinates or omit both.",
   path: ["latitude"],
+}).refine((input) => input.building.length >= 2 || input.latitude !== undefined, {
+  message: "Choose a campus building or provide a live location pin.",
+  path: ["building"],
 }).refine((input) => input.accuracyMeters === undefined || input.latitude !== undefined, {
   message: "Location accuracy requires a location pin.",
   path: ["accuracyMeters"],

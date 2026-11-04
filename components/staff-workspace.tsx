@@ -8,6 +8,7 @@ import { PriorityPill, StatusPill } from "@/components/report-ui";
 import { categoryLabel, languageLabel, reportSummary, reportTitle, statusLabel, tr } from "@/lib/i18n";
 import { timeAgo } from "@/lib/format";
 import type { Category, Report, ReportStatus } from "@/lib/types";
+import { CampusIssueMap } from "@/components/campus-issue-map";
 
 const workStatuses: Array<ReportStatus | "All work"> = ["All work", "Under review", "Investigating", "In progress", "Awaiting admin review"];
 type StaffCluster = { id: string; title: string; category: string; location: string; reports: Array<{ id: string; ticket_number: string; title_en: string | null; title_as: string | null; summary_en: string | null; summary_as: string | null; category: string; suggested_priority: Report["suggestedPriority"]; confirmed_priority: Report["suggestedPriority"] | null; status: ReportStatus; location_building: string; location_area: string }> };
@@ -47,6 +48,7 @@ export function StaffWorkspace() {
       <article><span>{tr(locale, "Work in progress", "কাম চলি আছে")}</span><strong>{progressCount}</strong><small>{tr(locale, "Active in your department", "আপোনাৰ বিভাগত চলি আছে")}</small></article>
       <article className={reviewCount ? "needs-review" : ""}><span>{tr(locale, "With administrators", "প্ৰশাসকৰ ওচৰত")}</span><strong>{reviewCount}</strong><small>{tr(locale, "Waiting for a review decision", "পৰ্যালোচনাৰ সিদ্ধান্তৰ অপেক্ষাত")}</small></article>
     </div>
+    {!isDemo && user.department && <CampusIssueMap/>}
     {!isDemo && user.department && <section className="staff-clusters panel">
       <div className="staff-queue-heading"><div><div className="section-kicker">{tr(locale, "Administrator confirmed", "প্ৰশাসকে নিশ্চিত কৰিছে")}</div><h2>{tr(locale, "Issue clusters", "সমস্যাৰ ক্লাষ্টাৰ")}</h2></div><span>{clusters.length} {tr(locale, "active clusters", "টা সক্ৰিয় ক্লাষ্টাৰ")}</span></div>
       {clusterError ? <p className="field-hint" role="status">{clusterError}</p> : clusters.length ? <div className="staff-cluster-grid">{clusters.map((cluster) => <article className="staff-cluster-card" key={cluster.id}>
