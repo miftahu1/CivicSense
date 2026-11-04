@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "eval:matching": "node --import tsx --env-file=.env.local scripts/evaluate-matching.ts",
     "test:local": "node --import tsx --env-file=.env.local scripts/local-test.ts",
-    "email:resend": "node --import tsx --env-file=.env.local scripts/resend-department-email.ts"
+    "email:resend": "node --import tsx --env-file=.env.local scripts/resend-department-email.ts",
+    "test:campus-map": "node --import tsx scripts/test-campus-location-resolution.ts"
   },
   "dependencies": {
     "@fontsource/noto-sans-bengali": "^5.2.8",

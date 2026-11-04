@@ -33,13 +33,13 @@ const categoryLabels: Record<InterfaceLanguage, Record<Report["category"], strin
   },
   as: {
     "Infrastructure": "আন্তঃগাঁথনি",
-    "Utilities": "উপযোগিতা",
+    "Utilities": "পানী, বিদ্যুৎ আৰু অন্যান্য সেৱা",
     "Safety and Security": "নিৰাপত্তা আৰু সুৰক্ষা",
     "Transportation": "পৰিবহণ",
     "Environmental": "পৰিৱেশ",
     "Administrative": "প্ৰশাসনিক",
-    "Student Life": "ছাত্ৰ জীৱন",
-    "Faculty Support": "শিক্ষক সহায়",
+    "Student Life": "শিক্ষাৰ্থী জীৱন",
+    "Faculty Support": "শিক্ষকসকলৰ বাবে সহায়-সেৱা",
     "Events and Activities": "অনুষ্ঠান আৰু কাৰ্যকলাপ",
     "Technology and IT": "প্ৰযুক্তি আৰু তথ্য প্ৰযুক্তি",
     "Health and Wellness": "স্বাস্থ্য আৰু সুস্থতা",
@@ -72,12 +72,12 @@ export function languageLabel(language: Language, interfaceLanguage: InterfaceLa
   return {
     English: "ইংৰাজী",
     Assamese: "অসমীয়া",
-    "Romanised Assamese": "ৰোমানাইজড অসমীয়া",
+    "Romanised Assamese": "ৰোমান লিপিৰ অসমীয়া",
     Mixed: "মিশ্ৰ ভাষা",
   }[language];
 }
 
 export function roleLabel(role: "student" | "staff" | "admin", language: InterfaceLanguage) {
   if (language === "en") return role === "admin" ? "Administrator" : role === "staff" ? "Staff" : "Student";
-  return role === "admin" ? "প্ৰশাসক" : role === "staff" ? "কৰ্মচাৰী" : "ছাত্ৰ";
+  return role === "admin" ? "প্ৰশাসক" : role === "staff" ? "কৰ্মচাৰী" : "শিক্ষাৰ্থী";
 }

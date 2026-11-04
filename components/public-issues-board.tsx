@@ -8,7 +8,7 @@ import { Brand } from "@/components/brand";
 import { LanguageToggle } from "@/components/language-toggle";
 import { useWorkspace } from "@/components/workspace-provider";
 import { PriorityPill, StatusPill } from "@/components/report-ui";
-import { categoryLabel, statusLabel, tr } from "@/lib/i18n";
+import { categoryLabel, priorityLabel, statusLabel, tr } from "@/lib/i18n";
 import { formatDate } from "@/lib/format";
 import { categories, type Category, type Priority, type ReportStatus } from "@/lib/types";
 import campusBanner from "@/src/assets/campus-banner.png";
@@ -96,7 +96,7 @@ export function PublicIssuesBoard() {
       <div className="public-glance-grid">
         <Metric icon={<Layers3/>} value={stats.total} label={tr(locale, "Public reports", "ৰাজহুৱা প্ৰতিবেদন")} tone="green"/>
         <Metric icon={<Clock3/>} value={stats.underReview} label={tr(locale, "Under review", "পৰ্যালোচনাধীন")} tone="gold"/>
-        <Metric icon={<CircleCheck/>} value={stats.resolved} label={tr(locale, "Resolved", "সমাধান হৈছে")} tone="green"/>
+        <Metric icon={<CircleCheck/>} value={stats.resolved} label={statusLabel("Resolved", locale)} tone="green"/>
         <Metric icon={<TriangleAlert/>} value={stats.urgent} label={tr(locale, "Urgent priority", "জৰুৰী অগ্ৰাধিকাৰ")} tone="red"/>
       </div>
     </section>
@@ -104,16 +104,16 @@ export function PublicIssuesBoard() {
     <section className="public-issues-list">
       <div className="public-issues-list-head"><div><div className="section-kicker">{tr(locale, "Open community updates", "সম্প্ৰদায়ৰ শেহতীয়া আপডেট")}</div><h2>{tr(locale, "Reported around campus", "কেম্পাছত জনোৱা সমস্যা")}</h2><p>{tr(locale, "Browse public concerns and follow their progress.", "ৰাজহুৱা সমস্যাসমূহ ব্ৰাউজ কৰক আৰু অগ্ৰগতি অনুসৰণ কৰক।")}</p></div><span>{tr(locale, `Showing ${count} reports`, `${count}টা প্ৰতিবেদন`)}</span></div>
       <div className="public-filter-row">
-        <label className="public-search"><Search size={17}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tr(locale, "Search issues, locations or report IDs…", "সমস্যা, স্থান বা প্ৰতিবেদন ID বিচাৰক…")}/>{query && <button aria-label="Clear search" onClick={() => setQuery("")}><X size={14}/></button>}</label>
+        <label className="public-search"><Search size={17}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tr(locale, "Search issues, locations or report IDs…", "সমস্যা, স্থান বা প্ৰতিবেদন ID বিচাৰক…")}/>{query && <button aria-label={tr(locale, "Clear search", "বিচাৰ মচি পেলাওক")} onClick={() => setQuery("")}><X size={14}/></button>}</label>
         <label className="public-select"><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">{tr(locale, "All status", "সকলো স্থিতি")}</option>{(["Under review", "Investigating", "In progress", "Awaiting admin review", "Resolved"] as ReportStatus[]).map((item) => <option key={item} value={item}>{statusLabel(item, locale)}</option>)}</select><ChevronDown size={14}/></label>
         <label className="public-select"><select value={category} onChange={(event) => setCategory(event.target.value)}><option value="">{tr(locale, "All categories", "সকলো শ্ৰেণী")}</option>{categories.map((item) => <option key={item} value={item}>{categoryLabel(item, locale)}</option>)}</select><ChevronDown size={14}/></label>
-        <label className="public-select"><select value={priority} onChange={(event) => setPriority(event.target.value)}><option value="">{tr(locale, "All priority", "সকলো অগ্ৰাধিকাৰ")}</option>{(["Urgent", "High", "Medium", "Low"] as const).map((item) => <option key={item} value={item}>{item}</option>)}</select><ChevronDown size={14}/></label>
+        <label className="public-select"><select value={priority} onChange={(event) => setPriority(event.target.value)}><option value="">{tr(locale, "All priority", "সকলো অগ্ৰাধিকাৰ")}</option>{(["Urgent", "High", "Medium", "Low"] as const).map((item) => <option key={item} value={item}>{priorityLabel(item, locale)}</option>)}</select><ChevronDown size={14}/></label>
         <label className="public-select public-sort"><ArrowDownWideNarrow size={15}/><select value={sort} onChange={(event) => setSort(event.target.value)}><option value="latest">{tr(locale, "Latest", "শেহতীয়া")}</option><option value="oldest">{tr(locale, "Oldest", "পুৰণি")}</option><option value="priority">{tr(locale, "Priority", "অগ্ৰাধিকাৰ")}</option></select><ChevronDown size={14}/></label>
       </div>
       <div className="public-filter-chips" role="group" aria-label={tr(locale, "Quick filters", "দ্ৰুত ফিল্টাৰ")}>
         <Chip active={activeChip === "all"} onClick={() => selectChip("all")}>{tr(locale, "All", "সকলো")} <b>{stats.total}</b></Chip>
         <Chip active={activeChip === "review"} onClick={() => selectChip("review")}>{tr(locale, "Under review", "পৰ্যালোচনাধীন")} <b>{stats.underReview}</b></Chip>
-        <Chip active={activeChip === "resolved"} onClick={() => selectChip("resolved")}>{tr(locale, "Resolved", "সমাধান হৈছে")} <b>{stats.resolved}</b></Chip>
+        <Chip active={activeChip === "resolved"} onClick={() => selectChip("resolved")}>{statusLabel("Resolved", locale)} <b>{stats.resolved}</b></Chip>
         <Chip active={activeChip === "urgent"} onClick={() => selectChip("urgent")}>{tr(locale, "Urgent", "জৰুৰী")} <b>{stats.urgent}</b></Chip>
         {anyFilter && <button className="public-clear-filters" onClick={clearFilters}>{tr(locale, "Clear filters", "ফিল্টাৰ আঁতৰাওক")} <X size={13}/></button>}
       </div>
@@ -137,7 +137,7 @@ function PublicIssueCard({ report, locale }: { report: PublicReport; locale: "en
     <h3>{title}</h3><p>{summary}</p>
     <div className="public-issue-tags"><PriorityPill priority={report.priority} language={locale}/><span>{categoryLabel(report.category, locale)}</span></div>
     <span className="public-issue-location"><MapPin size={13}/>{report.building}{report.area ? ` · ${report.area}` : ""}</span>
-    <div className="public-card-progress" aria-label={`${statusStep} of 3 steps complete`}><div className="public-card-progress-steps">{[1, 2, 3].map((step) => <span className={step < statusStep ? "is-done" : step === statusStep ? "is-current" : ""} key={step}>{step < statusStep ? <Check size={10}/> : step}</span>)}</div><small>{report.status === "Resolved" ? tr(locale, "Resolved", "সমাধান হৈছে") : report.status === "Under review" ? tr(locale, "Received · awaiting review", "গ্ৰহণ কৰা হৈছে · পৰ্যালোচনাৰ অপেক্ষাত") : tr(locale, "Being worked on", "কাম চলি আছে")}</small></div>
+    <div className="public-card-progress" aria-label={tr(locale, `${statusStep} of 3 steps complete`, `মুঠ ৩টা ধাপৰ ভিতৰত ${statusStep}টা সম্পূৰ্ণ`)}><div className="public-card-progress-steps">{[1, 2, 3].map((step) => <span className={step < statusStep ? "is-done" : step === statusStep ? "is-current" : ""} key={step}>{step < statusStep ? <Check size={10}/> : step}</span>)}</div><small>{report.status === "Resolved" ? statusLabel(report.status, locale) : report.status === "Under review" ? tr(locale, "Received · awaiting review", "গ্ৰহণ কৰা হৈছে · পৰ্যালোচনাৰ অপেক্ষাত") : tr(locale, "Being worked on", "কাম চলি আছে")}</small></div>
     <span className="public-issue-date"><CalendarDays size={13}/>{formatDate(report.createdAt, false, locale)}<ArrowRight size={14} className="public-card-arrow"/></span>
   </Link>;
 }

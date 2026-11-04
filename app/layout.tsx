@@ -6,6 +6,7 @@ import "@fontsource/noto-sans-bengali/500.css";
 import "@fontsource/noto-sans-bengali/600.css";
 import "@/app/globals.css";
 import "@/app/premium.css";
+import "@/app/workspace-experience.css";
 import { WorkspaceProvider } from "@/components/workspace-provider";
 import { Toaster } from "sonner";
 

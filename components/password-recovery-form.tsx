@@ -70,7 +70,7 @@ export function PasswordRecoveryForm({ mode }: { mode: "request" | "update" }) {
 
   const isRequest = mode === "request";
   return <div className="auth-wrap" lang={locale}>
-    <aside className="auth-side"><Brand light/><div><div className="eyebrow" style={{ color: "#bdc7bf", marginBottom: 20 }}><span className="eyebrow-mark"/>{tr(locale, "Campus operations, made clearer", "কেম্পাছ পৰিচালনা, অধিক স্পষ্ট")}</div><h1>{tr(locale, "Your account, back in reach.", "আপোনাৰ একাউণ্ট পুনৰ ব্যৱহাৰ কৰক।")}</h1><p>{tr(locale, "Securely reset your password to return to your campus workspace.", "কেম্পাছ ৱৰ্কস্পেচলৈ উভতি যাবলৈ সুৰক্ষিতভাৱে পাছৱৰ্ড সলনি কৰক।")}</p></div><div className="auth-side-note">Bilingual campus issue workspace</div></aside>
+    <aside className="auth-side"><Brand light/><div><div className="eyebrow" style={{ color: "#bdc7bf", marginBottom: 20 }}><span className="eyebrow-mark"/>{tr(locale, "Campus operations, made clearer", "কেম্পাছ পৰিচালনা, অধিক স্পষ্ট")}</div><h1>{tr(locale, "Your account, back in reach.", "আপোনাৰ একাউণ্ট পুনৰ ব্যৱহাৰ কৰক।")}</h1><p>{tr(locale, "Securely reset your password to return to your campus workspace.", "কেম্পাছ ৱৰ্কস্পেচলৈ উভতি যাবলৈ সুৰক্ষিতভাৱে পাছৱৰ্ড সলনি কৰক।")}</p></div><div className="auth-side-note">{tr(locale, "Bilingual campus issue workspace", "কেম্পাছৰ সমস্যাৰ বাবে দ্বিভাষিক কৰ্মক্ষেত্ৰ")}</div></aside>
     <main className="auth-main"><section className="auth-card">
       <div className="auth-language-row"><LanguageToggle/></div>
       <div className="section-kicker">{tr(locale, "Account access", "একাউণ্টত প্ৰৱেশ")}</div>

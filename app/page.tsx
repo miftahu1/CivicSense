@@ -17,36 +17,24 @@ import waterIssue from "@/src/assets/water-issue.webp";
 type ExampleKey = "as" | "rom" | "en";
 
 const examples: Record<ExampleKey, {
-  tab: string;
-  source: string;
-  language: string;
   text: string;
   score: string;
   englishSummary: string;
   assameseSummary: string;
 }> = {
   as: {
-    tab: "অসমীয়া",
-    source: "Assamese · native script",
-    language: "Assamese",
-    text: "আমাৰ হোষ্টেলৰ তৃতীয় মহলাত দুদিন ধৰি পানী নাই। বাথৰুমৰ পাইপলাইনৰ পৰা পানী অহা নাই আৰু ছাত্ৰ-ছাত্ৰীৰ বহুত অসুবিধা হৈছে।",
+    text: "আমাৰ হোষ্টেলৰ তৃতীয় মহলাত দুদিন ধৰি পানী নাই। বাথৰুমৰ পাইপলাইনৰ পৰা পানী অহা নাই আৰু শিক্ষাৰ্থীসকলৰ বহুত অসুবিধা হৈছে।",
     score: "96.2%",
     englishSummary: "No water has reached the hostel’s third floor for two days.",
     assameseSummary: "হোষ্টেলৰ তৃতীয় মহলাত দুদিন ধৰি পানীৰ যোগান বন্ধ হৈ আছে।",
   },
   rom: {
-    tab: "Romanised",
-    source: "Romanised Assamese",
-    language: "Romanised Assamese",
     text: "Hostel r third floor ot dudin dhori pani nai. Please help jaldi solve kori diok.",
     score: "94.2%",
     englishSummary: "A resident reports a two day water outage on the hostel’s third floor.",
     assameseSummary: "হোষ্টেলৰ তৃতীয় মহলাত দুদিন ধৰি পানী নাই বুলি এজন আৱাসীয়ে জনাইছে।",
   },
   en: {
-    tab: "English",
-    source: "English · original wording",
-    language: "English",
     text: "There has been no water supply on the third floor of the hostel for two days. The washroom taps are dry.",
     score: "97.5%",
     englishSummary: "No water is reaching the hostel’s third floor, including the washrooms.",
@@ -94,6 +82,21 @@ export default function LandingPage() {
   const orderedIssueCards = [...issueCards.slice(issueStart), ...issueCards.slice(0, issueStart)];
   const example = examples[exampleKey];
   const isAs = locale === "as";
+  const exampleTabLabel = (key: ExampleKey) => key === "as"
+    ? tr(locale, "Assamese", "অসমীয়া")
+    : key === "rom"
+      ? tr(locale, "Romanised", "ৰোমান লিপি")
+      : tr(locale, "English", "ইংৰাজী");
+  const exampleSourceLabel = (key: ExampleKey) => key === "as"
+    ? tr(locale, "Assamese · native script", "অসমীয়া · নিজৰ লিপি")
+    : key === "rom"
+      ? tr(locale, "Romanised Assamese", "ৰোমান লিপিৰ অসমীয়া")
+      : tr(locale, "English · original wording", "ইংৰাজী · মূল লেখা");
+  const detectedLanguageLabel = (key: ExampleKey) => key === "as"
+    ? tr(locale, "Assamese", "অসমীয়া")
+    : key === "rom"
+      ? tr(locale, "Romanised Assamese", "ৰোমান লিপিৰ অসমীয়া")
+      : tr(locale, "English", "ইংৰাজী");
   const workspaceHref = isAuthenticated ? (user.role === "admin" ? "/admin" : user.role === "staff" ? "/staff" : "/app") : "/app";
   const primaryCtaHref = isAuthenticated ? workspaceHref : "/app/new";
   const primaryCtaLabel = isAuthenticated ? tr(locale, "Open workspace", "ৱৰ্কস্পেচ খোলক") : tr(locale, "Report an issue", "সমস্যা জনাওক");
@@ -145,9 +148,9 @@ export default function LandingPage() {
         <div className="home-copy">
           <div className="home-eyebrow"><span/>{tr(locale,"Campus issue reporting platform","কেম্পাছৰ সমস্যা জনোৱাৰ মঞ্চ")}</div>
           <h1 className={`home-title ${isAs ? "assamese" : ""}`} lang={locale}>{isAs ? <>সমস্যা দেখিছেনে?<br/><em>সকলোকে জনাওক।</em></> : <>See a problem?<br/><em>Make it visible.</em></>}</h1>
-          <p className={`home-description ${isAs ? "assamese" : ""}`} lang={locale}>{isAs ? "অসমীয়া, ৰোমানাইজড অসমীয়া বা ইংৰাজীত কেম্পাছৰ সমস্যা জনাওক। প্ৰতিবেদন অনুসৰণ কৰক, আপডেট চাওক আৰু কেম্পাছে কেনেদৰে সঁহাৰি দিয়ে জানক।" : "Report campus issues in Assamese, Romanised Assamese or English. Track reports, follow updates and see how your campus responds."}</p>
+          <p className={`home-description ${isAs ? "assamese" : ""}`} lang={locale}>{isAs ? "অসমীয়া, ৰোমান লিপিৰ অসমীয়া বা ইংৰাজীত কেম্পাছৰ সমস্যা জনাওক। প্ৰতিবেদন অনুসৰণ কৰক, আপডেট চাওক আৰু কেম্পাছে কেনেদৰে সঁহাৰি দিয়ে জানক।" : "Report campus issues in Assamese, Romanised Assamese or English. Track reports, follow updates and see how your campus responds."}</p>
           <div className="home-actions"><Link href={primaryCtaHref} className="home-cta home-cta-light"><FilePlus2 size={18}/>{primaryCtaLabel}<ArrowRight size={16}/></Link><Link href={secondaryCtaHref} className="home-cta home-cta-outline"><Building2 size={17}/>{secondaryCtaLabel}</Link></div>
-          <div className="home-signals"><div><Languages/><span><b>{tr(locale,"Multilingual","বহুভাষিক")}</b><small>English · অসমীয়া · Romanised</small></span></div><div><Sparkles/><span><b>{tr(locale,"AI-assisted","এআই সহায়িত")}</b><small>{tr(locale,"Categorization & matching","শ্ৰেণীবিভাজন আৰু মিল")}</small></span></div><div><Layers3/><span><b>{tr(locale,"Transparent","স্বচ্ছ")}</b><small>{tr(locale,"Track every step","প্ৰতিটো পদক্ষেপ চাওক")}</small></span></div></div>
+          <div className="home-signals"><div><Languages/><span><b>{tr(locale,"Multilingual","বহুভাষিক")}</b><small>{tr(locale,"English · Assamese · Romanised Assamese","ইংৰাজী · অসমীয়া · ৰোমান লিপিৰ অসমীয়া")}</small></span></div><div><Sparkles/><span><b>{tr(locale,"AI-assisted","এআই সহায়িত")}</b><small>{tr(locale,"Categorization & matching","শ্ৰেণীবিভাজন আৰু মিল")}</small></span></div><div><Layers3/><span><b>{tr(locale,"Transparent","স্বচ্ছ")}</b><small>{tr(locale,"Track every step","প্ৰতিটো পদক্ষেপ চাওক")}</small></span></div></div>
         </div>
 
         <div className="home-dash" aria-label={tr(locale,"CivicSense issue reporting preview","CivicSense সমস্যা প্ৰতিবেদনৰ আভাস")} onPointerMove={tiltDashboard} onPointerLeave={resetDashboardTilt}>
@@ -168,7 +171,7 @@ export default function LandingPage() {
           <article className="home-glass home-workflow-card"><strong>{tr(locale,"From report to resolution","প্ৰতিবেদনৰ পৰা সমাধানলৈ")}</strong><ol>{[tr(locale,"Reported","দাখিল"),tr(locale,"Understood by AI","এআইয়ে বুজি পালে"),tr(locale,"Assigned","দায়িত্ব দিয়া হ’ল"),tr(locale,"Resolved","সমাধান")].map((step,index)=><li className={index===1?"is-current":""} key={step}><span>{index===0?<Check size={14}/>:index===1?<Sparkles size={14}/>:index===3?<Check size={14}/>:<UserRound size={14}/>}</span><small>{step}</small></li>)}</ol></article>
         </div>
       </div>
-      <div className="home-feature-strip" id="features"><article><Building2/><div><strong>{tr(locale,"Built for real campuses","বাস্তৱ কেম্পাছৰ বাবে")}</strong><p>{tr(locale,"Designed around campus issue reporting and response.","কেম্পাছৰ সমস্যা জনোৱা আৰু সঁহাৰিৰ বাবে নিৰ্মিত।")}</p></div></article><article><Languages/><div><strong>{tr(locale,"Report in your language","নিজৰ ভাষাত জনাওক")}</strong><p>{tr(locale,"English, Assamese or Romanised Assamese.","ইংৰাজী, অসমীয়া বা ৰোমানাইজড অসমীয়া।")}</p></div></article><article><Layers3/><div><strong>{tr(locale,"AI that understands issues","সমস্যা বুজা এআই")}</strong><p>{tr(locale,"Groups related reports and suggests priority.","সম্পৰ্কিত প্ৰতিবেদন মিলাই অগ্ৰাধিকাৰ পৰামৰ্শ দিয়ে।")}</p></div></article><article><CircleCheck/><div><strong>{tr(locale,"Visible and accountable","দৃশ্যমান আৰু জবাবদিহি")}</strong><p>{tr(locale,"Follow progress and see measurable outcomes.","অগ্ৰগতি অনুসৰণ কৰি ফলাফল চাওক।")}</p></div></article></div>
+      <div className="home-feature-strip" id="features"><article><Building2/><div><strong>{tr(locale,"Built for real campuses","বাস্তৱ কেম্পাছৰ বাবে")}</strong><p>{tr(locale,"Designed around campus issue reporting and response.","কেম্পাছৰ সমস্যা জনোৱা আৰু সঁহাৰিৰ বাবে নিৰ্মিত।")}</p></div></article><article><Languages/><div><strong>{tr(locale,"Report in your language","নিজৰ ভাষাত জনাওক")}</strong><p>{tr(locale,"English, Assamese or Romanised Assamese.","ইংৰাজী, অসমীয়া বা ৰোমান লিপিৰ অসমীয়া।")}</p></div></article><article><Layers3/><div><strong>{tr(locale,"AI that understands issues","সমস্যা বুজা এআই")}</strong><p>{tr(locale,"Groups related reports and suggests priority.","সম্পৰ্কিত প্ৰতিবেদন মিলাই অগ্ৰাধিকাৰ পৰামৰ্শ দিয়ে।")}</p></div></article><article><CircleCheck/><div><strong>{tr(locale,"Visible and accountable","দৃশ্যমান আৰু জবাবদিহি")}</strong><p>{tr(locale,"Follow progress and see measurable outcomes.","অগ্ৰগতি অনুসৰণ কৰি ফলাফল চাওক।")}</p></div></article></div>
     </section>
 
     <section className="issue-gallery" aria-labelledby="issue-gallery-title">
@@ -187,19 +190,19 @@ export default function LandingPage() {
       <div className="semantic-heading">
         <div><div className="eyebrow"><Sparkles size={13}/>{tr(locale,"Signature AI capability","CivicSense-ৰ বিশেষ এআই সুবিধা")}</div><h2 id="semantic-title">{tr(locale,"Cross-Language Semantic Issue Intelligence","বহুভাষিক অৰ্থভিত্তিক সমস্যা চিনাক্তকৰণ")}</h2><p>{tr(locale,"One campus issue can be described in different words and languages. CivicSense compares the meaning and location, then gives staff a lead to review.","এটা কেম্পাছৰ সমস্যাকে বিভিন্ন ভাষা আৰু শব্দৰে জনাব পাৰি। CivicSense-এ অৰ্থ আৰু স্থান তুলনা কৰি কৰ্মচাৰীৰ পৰ্যালোচনাৰ বাবে সম্ভাৱ্য মিল দেখুৱায়।")}</p></div>
         <div className="semantic-tabs" role="tablist" aria-label={tr(locale,"Choose a source language example","উৎস ভাষাৰ উদাহৰণ বাছক")}>
-          {(Object.keys(examples) as ExampleKey[]).map((key)=><button key={key} type="button" role="tab" aria-selected={exampleKey===key} className={exampleKey===key?"active":""} onClick={()=>setExampleKey(key)}>{examples[key].tab}</button>)}
+          {(Object.keys(examples) as ExampleKey[]).map((key)=><button key={key} type="button" role="tab" aria-selected={exampleKey===key} className={exampleKey===key?"active":""} onClick={()=>setExampleKey(key)}>{exampleTabLabel(key)}</button>)}
         </div>
       </div>
       <div className="semantic-stage">
         <article className="semantic-source">
-          <div className="semantic-card-head"><span><Globe2 size={13}/>{tr(locale,"Original report · source language","মূল প্ৰতিবেদন · উৎস ভাষা")}</span><b className={exampleKey==="as"?"assamese":""} lang={exampleKey==="as"?"as":"en"}>{example.source}</b></div>
-          <blockquote className={exampleKey==="as"?"assamese":""} lang={exampleKey==="as"?"as":"en"}>“{example.text}”</blockquote>
+          <div className="semantic-card-head"><span><Globe2 size={13}/>{tr(locale,"Original report · source language","মূল প্ৰতিবেদন · উৎস ভাষা")}</span><b className={isAs?"assamese":""} lang={locale}>{exampleSourceLabel(exampleKey)}</b></div>
+          <blockquote className={exampleKey==="as"?"assamese":""} lang={exampleKey==="as"?"as":exampleKey==="rom"?"as-Latn":"en"}>“{example.text}”</blockquote>
           <div className="semantic-source-foot"><span>{tr(locale,"Student Hostel · Third floor","ছাত্ৰাৱাস · তৃতীয় মহলা")}</span><Link href="/app/new">{tr(locale,"Try this in the report form","প্ৰতিবেদন প্ৰপত্ৰত চেষ্টা কৰক")} <ArrowRight size={11}/></Link></div>
         </article>
         <div className="semantic-connector" aria-hidden="true"><span><GitMerge size={15}/></span></div>
         <article className="semantic-result">
           <div className="semantic-result-head"><span><Sparkles size={13}/>{tr(locale,"Illustrative AI analysis","এআই বিশ্লেষণৰ উদাহৰণ")}</span><b>{tr(locale,"Example match","উদাহৰণৰ মিল")} · {example.score}</b></div>
-          <div className="semantic-facts"><div><small>{tr(locale,"Detected source language","চিনাক্ত উৎস ভাষা")}</small><strong className={exampleKey==="as"?"assamese":""}>{example.language}</strong></div><div><small>{tr(locale,"Suggested category","পৰামৰ্শ দিয়া শ্ৰেণী")}</small><strong>{tr(locale,"Water supply / plumbing","পানী যোগান / নল-নৰ্দমা")}</strong></div><div><small>{tr(locale,"Suggested priority","পৰামৰ্শ দিয়া অগ্ৰাধিকাৰ")}</small><strong className="priority-text">{tr(locale,"Urgent","জৰুৰী")}</strong></div></div>
+          <div className="semantic-facts"><div><small>{tr(locale,"Detected source language","চিনাক্ত উৎস ভাষা")}</small><strong className={isAs?"assamese":""} lang={locale}>{detectedLanguageLabel(exampleKey)}</strong></div><div><small>{tr(locale,"Suggested category","পৰামৰ্শ দিয়া শ্ৰেণী")}</small><strong>{tr(locale,"Water supply / plumbing","পানী যোগান / নল-নৰ্দমা")}</strong></div><div><small>{tr(locale,"Suggested priority","পৰামৰ্শ দিয়া অগ্ৰাধিকাৰ")}</small><strong className="priority-text">{tr(locale,"Urgent","জৰুৰী")}</strong></div></div>
           <div className="semantic-summaries"><div><small>English · summary</small><p>{example.englishSummary}</p></div><div className="assamese" lang="as"><small>অসমীয়া · সাৰাংশ</small><p>{example.assameseSummary}</p></div></div>
           <div className="semantic-cluster"><div><GitMerge size={13}/><span>{tr(locale,"Related issue cluster","সম্পৰ্কিত সমস্যা ক্লাষ্টাৰ")}</span><strong>CS-2026-0081</strong></div><p>{tr(locale,"Hostel water supply interruption","হোষ্টেলৰ পানী যোগান ব্যাহত")}</p></div>
         </article>
